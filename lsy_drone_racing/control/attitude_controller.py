@@ -12,7 +12,6 @@ from __future__ import annotations  # Python 3.10 type hints
 
 import math
 from typing import TYPE_CHECKING
-from lsy_drone_racing.control.plot_trajectory import *
 import numpy as np
 from crazyflow.constants import MASS
 from scipy.interpolate import CubicSpline
