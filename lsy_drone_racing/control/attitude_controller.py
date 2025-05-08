@@ -46,8 +46,7 @@ class AttitudeController(Controller):
         self.i_error = np.zeros(3)
         self.g = 9.81
         self._tick = 0
-        self._initPostion = obs["pos"]
-        #print("Initial position: ", self._initPostion)
+
         # Same waypoints as in the trajectory controller. Determined by trial and error.
         waypoints = np.array([
             [1.09, 1.4, 0.1],
@@ -78,25 +77,13 @@ class AttitudeController(Controller):
         cs_y = CubicSpline(ts, waypoints[:, 1])
         cs_z = CubicSpline(ts, waypoints[:, 2])
 
-        # Plot the cubic spline trajectory
-
-
         des_completion_time = 15
         ts = np.linspace(0, 1, int(self.freq * des_completion_time))
         self.x_des = cs_x(ts)
         self.y_des = cs_y(ts)
         self.z_des = cs_z(ts)
-        #plot_trajectory(ts, waypoints, self.x_des, self.y_des , self.z_des, config)
         self._finished = False
-        #print("AttitudeController initialized")
-        gates_positions = obs['gates_pos']
-        gates_orientations = obs['gates_quat']
-        obstacles_positions = obs['obstacles_pos']
 
-    # # Print or store the extracted data for debugging or further use
-    #     print("Gate Positions:", gates_positions)
-    #     print("Gate Orientations:", gates_orientations)
-    #     print("Obstacle Positions:", obstacles_positions)
 
     def compute_control(
         self, obs: dict[str, NDArray[np.floating]], info: dict | None = None
@@ -153,9 +140,7 @@ class AttitudeController(Controller):
         R_desired = np.vstack([x_axis_desired, y_axis_desired, z_axis_desired]).T
         euler_desired = R.from_matrix(R_desired).as_euler("xyz", degrees=False)
         thrust_desired, euler_desired
-        action = np.concatenate([[thrust_desired], euler_desired], dtype=np.float32)
-        #print(action)
-        return action
+        return np.concatenate([[thrust_desired], euler_desired], dtype=np.float32)
 
     def step_callback(
         self,
