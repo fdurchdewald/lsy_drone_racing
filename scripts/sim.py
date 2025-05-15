@@ -16,12 +16,12 @@ from typing import TYPE_CHECKING
 import fire
 import gymnasium
 from gymnasium.wrappers.jax_to_numpy import JaxToNumpy
+import numpy as np
 
-from lsy_drone_racing.utils import load_config, load_controller
+from lsy_drone_racing.utils import draw_line, load_config, load_controller
 
 if TYPE_CHECKING:
     from ml_collections import ConfigDict
-
     from lsy_drone_racing.control.controller import Controller
     from lsy_drone_racing.envs.drone_race import DroneRaceEnv
 
@@ -33,7 +33,7 @@ def simulate(
     config: str = "level0.toml",
     controller: str | None = None,
     n_runs: int = 1,
-    gui: bool | None = None,
+    gui: bool | None = True,
 ) -> list[float]:
     """Evaluate the drone controller over multiple episodes.
 
@@ -47,16 +47,18 @@ def simulate(
     Returns:
         A list of episode times.
     """
-    # Load configuration and check if firmare should be used.
+    # Load configuration
     config = load_config(Path(__file__).parents[1] / "config" / config)
     if gui is None:
         gui = config.sim.gui
     else:
         config.sim.gui = gui
-    # Load the controller module
+
+    # Load the controller class
     control_path = Path(__file__).parents[1] / "lsy_drone_racing/control"
     controller_path = control_path / (controller or config.controller.file)
-    controller_cls = load_controller(controller_path)  # This returns a class, not an instance
+    controller_cls = load_controller(controller_path)
+
     # Create the racing environment
     env: DroneRaceEnv = gymnasium.make(
         config.env.id,
@@ -71,37 +73,62 @@ def simulate(
     )
     env = JaxToNumpy(env)
 
-    ep_times = []
-    for _ in range(n_runs):  # Run n_runs episodes with the controller
+    ep_times: list[float] = []
+    for _ in range(n_runs):
         obs, info = env.reset()
         controller: Controller = controller_cls(obs, info, config)
+
+        # --- Prepare a permanent sample of the spline trajectory ---
+        num_samples = 200
+        t_lin = np.linspace(0.0, controller.t_total, num_samples)
+        path_points = controller.trajectory(t_lin)  # shape (num_samples, 3)
+
+        # --- Prepare storage for the actually flown path ---
+        flown_positions: list[np.ndarray] = []
+
         i = 0
         fps = 60
 
         while True:
             curr_time = i / config.env.freq
 
+            # Compute and apply control
             action = controller.compute_control(obs, info)
             obs, reward, terminated, truncated, info = env.step(action)
-            # Update the controller internal state and models.
             controller_finished = controller.step_callback(
                 action, obs, reward, terminated, truncated, info
             )
-            # Add up reward, collisions
+
+            # Record current drone position (ground truth state)
+            flown_positions.append(obs["pos"])
+
+            # Draw both the planned path and the flown path every frame
+            if config.sim.gui:
+                # planned path: grün, Stärke 2
+                draw_line(env, path_points,
+                          rgba=np.array([0.0, 1.0, 0.0, 1.0]),
+                          min_size=2.0, max_size=2.0)
+
+                # tatsächlich geflogener Pfad: rot, Stärke 1.5
+                if len(flown_positions) >= 2:
+                    fp = np.vstack(flown_positions)
+                    draw_line(env, fp,
+                              rgba=np.array([1.0, 0.0, 0.0, 1.0]),
+                              min_size=1.5, max_size=1.5)
+
+                env.render()
+
             if terminated or truncated or controller_finished:
                 break
-            # Synchronize the GUI.
-            if config.sim.gui:
-                if ((i * fps) % config.env.freq) < fps:
-                    env.render()
+
             i += 1
 
-        controller.episode_callback()  # Update the controller internal state and models.
+        # Episode bookkeeping
+        controller.episode_callback()
         log_episode_stats(obs, info, config, curr_time)
         controller.episode_reset()
         ep_times.append(curr_time if obs["target_gate"] == -1 else None)
 
-    # Close the environment
     env.close()
     return ep_times
 
@@ -113,7 +140,9 @@ def log_episode_stats(obs: dict, info: dict, config: ConfigDict, curr_time: floa
         gates_passed = len(config.env.track.gates)
     finished = gates_passed == len(config.env.track.gates)
     logger.info(
-        f"Flight time (s): {curr_time}\nFinished: {finished}\nGates passed: {gates_passed}\n"
+        f"Flight time (s): {curr_time}\n"
+        f"Finished: {finished}\n"
+        f"Gates passed: {gates_passed}\n"
     )
 
 
