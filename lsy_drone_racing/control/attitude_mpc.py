@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING
 import numpy as np
 import scipy
 from acados_template import AcadosModel, AcadosOcp, AcadosOcpSolver
-from casadi import MX, cos, sin, vertcat
+from casadi import MX, cos, sin, vertcat, fmax, sqrt
 from scipy.interpolate import CubicSpline
 from scipy.spatial.transform import Rotation as R
 
@@ -40,6 +40,8 @@ def export_quadrotor_ode_model() -> AcadosModel:
 
     """Model setting"""
     # define basic variables in state and input vector
+    box_min = MX.sym("box_min", 3)  
+    box_max = MX.sym("box_max", 3)  
     px = MX.sym("px")  # 0
     py = MX.sym("py")  # 1
     pz = MX.sym("pz")  # 2
@@ -50,6 +52,11 @@ def export_quadrotor_ode_model() -> AcadosModel:
     pitch = MX.sym("p")  # 7
     yaw = MX.sym("y")  # 8
     f_collective = MX.sym("f_collective")
+    
+    dx = fmax(fmax(box_min[0] - px, px - box_max[0]), 0)
+    dy = fmax(fmax(box_min[1] - py, py - box_max[1]), 0)
+    dz = fmax(fmax(box_min[2] - pz, pz - box_max[2]), 0)
+    dist_box = sqrt(dx**2 + dy**2 + dz**2)
 
     f_collective_cmd = MX.sym("f_collective_cmd")
     r_cmd = MX.sym("r_cmd")
@@ -107,7 +114,8 @@ def export_quadrotor_ode_model() -> AcadosModel:
     model.f_impl_expr = None
     model.x = states
     model.u = inputs
-
+    model.con_h_expr = vertcat(dist_box)
+    model.p = vertcat(box_min, box_max)
     return model
 
 
@@ -120,7 +128,9 @@ def create_ocp_solver(
     # set model
     model = export_quadrotor_ode_model()
     ocp.model = model
-
+    ocp.parameter_values = np.zeros(6)
+    ocp.model.con_h_expr = model.con_h_expr
+    ocp.model.p = model.p   
     # Get Dimensions
     nx = model.x.rows()
     nu = model.u.rows()
@@ -186,7 +196,17 @@ def create_ocp_solver(
     ocp.cost.yref_e = np.array(
         [1.0, 1.0, 0.4, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.35, 0.35, 0.0, 0.0, 0.0]
     )
+    ocp.constraints.lh = np.array([0.3])   # 30 cm Abstand zur Box
+    ocp.constraints.uh = np.array([1e8])   # kein oberes Limit
+    ocp.constraints.nh = 1                 # Anzahl h-Constraints
+    ocp.constraints.nsh = 1                # 1 Slack-Variable
+    ocp.constraints.idxsh = np.array([0])  # Slack für h
 
+    # Kosten für Slack (Strafe bei Verletzung)
+    ocp.cost.Zl = np.array([[100.0]])
+    ocp.cost.Zu = np.array([[100.0]])
+    ocp.cost.zl = np.array([[0.0]])
+    ocp.cost.zu = np.array([[0.0]])
     # Set State Constraints
     ocp.constraints.lbx = np.array([0.1, 0.1, -1.57, -1.57, -1.57])
     ocp.constraints.ubx = np.array([0.55, 0.55, 1.57, 1.57, 1.57])
@@ -220,6 +240,11 @@ def create_ocp_solver(
 
     return acados_ocp_solver, ocp
 
+def distance_to_box(px, py, pz, box_min, box_max):
+    dx = np.maximum(box_min[0] - px, 0, px - box_max[0])
+    dy = np.maximum(box_min[1] - py, 0, py - box_max[1])
+    dz = np.maximum(box_min[2] - pz, 0, pz - box_max[2])
+    return np.sqrt(dx**2 + dy**2 + dz**2)
 
 class MPController(Controller):
     """Example of a MPC using the collective thrust and attitude interface."""
@@ -236,6 +261,9 @@ class MPController(Controller):
         super().__init__(obs, info, config)
         self.freq = config.env.freq
         self._tick = 0
+        self.gates_pos = obs['gates_pos']
+        self.gates_quat = obs['gates_quat']
+        self.obstacles_pos = obs['obstacles_pos']
 
         # Same waypoints as in the trajectory controller. Determined by trial and error.
         waypoints = np.array(
@@ -259,7 +287,7 @@ class MPController(Controller):
         cs_z = CubicSpline(ts, waypoints[:, 2])
 
 
-        des_completion_time = 5
+        des_completion_time = 8
         ts = np.linspace(0, 1, int(self.freq * des_completion_time))
 
         self.x_des = cs_x(ts)
@@ -268,7 +296,7 @@ class MPController(Controller):
         self.traj_points = np.column_stack((self.x_des, self.y_des, self.z_des))
 
         self.N = 30
-        self.T_HORIZON = 4
+        self.T_HORIZON = 2
         self.dt = self.T_HORIZON / self.N
         self.x_des = np.concatenate((self.x_des, [self.x_des[-1]] * (2 * self.N + 1)))
         self.y_des = np.concatenate((self.y_des, [self.y_des[-1]] * (2 * self.N + 1)))
@@ -295,6 +323,12 @@ class MPController(Controller):
         Returns:
             The collective thrust and orientation [t_des, r_des, p_des, y_des] as a numpy array.
         """
+        box_min = np.array([10.0, 10.0, 0.0])  # Untere Ecke
+        box_max = np.array([11.0, 11.0, 1.0])  # Obere Ecke
+        box_param = np.concatenate((box_min, box_max))
+
+        for j in range(self.N + 1):
+            self.acados_ocp_solver.set(j, "p", box_param)
         i = min(self._tick, len(self.x_des) - 1)
         if self._tick > i:
             self.finished = True
@@ -383,7 +417,7 @@ class MPController(Controller):
         """Increment the tick counter."""
         self._tick += 1
 
-        return self.finished
+
 
     def episode_callback(self):
         """Reset the integral error."""
