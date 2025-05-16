@@ -116,8 +116,43 @@ def draw_line(
         viewer.add_marker(
             type=mujoco.mjtGeom.mjGEOM_LINE, size=sizes[i], pos=points[i], mat=mats[i], rgba=rgba
         )
+def draw_box(
+    env: RaceCoreEnv,
+    corners: NDArray,  # shape (8, 3)
+    rgba: NDArray | None = None,
+):
+    """
+    Draw a filled transparent 3D box (cuboid) from 8 corners.
 
+    Args:
+        env: The drone racing environment.
+        corners: An array of shape (8, 3), each row is a 3D point.
+                 The points must be ordered like a cuboid.
+        rgba: Optional RGBA color (default: semi-transparent red).
+    """
+    assert corners.shape == (8, 3), f"Expected (8,3), got {corners.shape}"
+    sim = env.unwrapped.sim
+    if sim.viewer is None:
+        return
+    viewer = sim.viewer.viewer
 
+    if rgba is None:
+        rgba = np.array([1.0, 0.0, 0.0, 0.3])  # semi-transparent red
+
+    # Compute AABB (axis-aligned bounding box)
+    box_min = corners.min(axis=0)
+    box_max = corners.max(axis=0)
+    center = (box_min + box_max) / 2
+    extents = (box_max - box_min) / 2  # half-size in each dimension
+
+    # Add a single filled box marker
+    viewer.add_marker(
+        type=mujoco.mjtGeom.mjGEOM_BOX,
+        size=extents,
+        pos=center,
+        mat=np.eye(3).reshape(-1),  # identity rotation
+        rgba=rgba,
+    )
 def _rotation_matrix_from_points(p1: NDArray, p2: NDArray) -> R:
     """Generate rotation matrices that align their z-axis to p2-p1."""
     z_axis = (v := p2 - p1) / np.linalg.norm(v, axis=-1, keepdims=True)
