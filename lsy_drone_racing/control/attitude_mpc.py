@@ -258,15 +258,17 @@ class MPController(Controller):
         cs_y = CubicSpline(ts, waypoints[:, 1])
         cs_z = CubicSpline(ts, waypoints[:, 2])
 
-        des_completion_time = 8
+
+        des_completion_time = 5
         ts = np.linspace(0, 1, int(self.freq * des_completion_time))
 
         self.x_des = cs_x(ts)
         self.y_des = cs_y(ts)
         self.z_des = cs_z(ts)
+        self.traj_points = np.column_stack((self.x_des, self.y_des, self.z_des))
 
         self.N = 30
-        self.T_HORIZON = 1.5
+        self.T_HORIZON = 4
         self.dt = self.T_HORIZON / self.N
         self.x_des = np.concatenate((self.x_des, [self.x_des[-1]] * (2 * self.N + 1)))
         self.y_des = np.concatenate((self.y_des, [self.y_des[-1]] * (2 * self.N + 1)))
@@ -386,3 +388,7 @@ class MPController(Controller):
     def episode_callback(self):
         """Reset the integral error."""
         self._tick = 0
+
+    def get_trajectory(self) -> NDArray[np.floating]:
+        """Get the trajectory points."""
+        return self.traj_points

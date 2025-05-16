@@ -79,9 +79,9 @@ def simulate(
         controller: Controller = controller_cls(obs, info, config)
 
         # --- Prepare a permanent sample of the spline trajectory ---
-        num_samples = 200
-        t_lin = np.linspace(0.0, controller.t_total, num_samples)
-        path_points = controller.trajectory(t_lin)  # shape (num_samples, 3)
+        # num_samples = 200
+        # t_lin = np.linspace(0, 1, num_samples)
+        path_points = controller.get_trajectory()
 
         # --- Prepare storage for the actually flown path ---
         flown_positions: list[np.ndarray] = []
