@@ -187,14 +187,30 @@ def draw_box(
         rgba=rgba,
     )
 
-
 def _rotation_matrix_from_points(p1: NDArray, p2: NDArray) -> R:
-    """Generate rotation matrices that align their z-axis to p2-p1."""
-    z_axis = (v := p2 - p1) / np.linalg.norm(v, axis=-1, keepdims=True)
-    random_vector = np.random.rand(*z_axis.shape)
-    x_axis = (v := np.cross(random_vector, z_axis)) / np.linalg.norm(v, axis=-1, keepdims=True)
+    """Robust: liefert immer eine gültige Rotation, auch bei Null-Segmenten."""
+    v      = p2 - p1
+    norms  = np.linalg.norm(v, axis=-1, keepdims=True)
+
+    small           = norms < 1e-9           # praktisch Länge 0
+    norms_safe      = norms.copy()
+    norms_safe[small] = 1.0                 # Division vermeiden
+
+    z_axis          = v / norms_safe
+    z_axis[small.squeeze()] = np.array([0.0, 0.0, 1.0])    # Dummy-Richtung
+
+    # Hilfsvektor wählen, der garantiert nicht kollinear ist
+    helper = np.tile(np.array([1.0, 0.0, 0.0]), (z_axis.shape[0], 1))
+    collinear = np.abs((z_axis * helper).sum(axis=-1)) > 0.99
+    helper[collinear] = np.array([0.0, 1.0, 0.0])
+
+    x_axis = np.cross(helper, z_axis)
+    x_norm = np.linalg.norm(x_axis, axis=-1, keepdims=True)
+    x_axis = x_axis / np.clip(x_norm, 1e-9, None)
+
     y_axis = np.cross(z_axis, x_axis)
     return R.from_matrix(np.stack((x_axis, y_axis, z_axis), axis=-1))
+
 
 
 def _quat_to_mat(q: NDArray) -> NDArray:
@@ -286,3 +302,156 @@ def draw_gates(
                 mat=R.reshape(-1),
                 rgba=rgba_frame,
             )
+
+def draw_tunnel(env, pos_on_path, s_total,
+                w=1.0, h=1.0, step=0.2,
+                rgba=np.array([0.0, 0.8, 1.0, 0.12])):
+
+    def local_frame(p, p_next):
+        """Gib Normal-, Binormal- **und Tangente** zurück!"""
+        t = p_next - p
+        t /= np.linalg.norm(t) + 1e-9        # Tangente
+        n = np.array([-t[1], t[0], 0.0])
+        n /= np.linalg.norm(n) + 1e-9
+        b = np.cross(t, n)
+        b /= np.linalg.norm(b) + 1e-9
+        return t, n, b                       # <-- t dazu
+
+    s_vals = np.arange(0.0, s_total, step)
+    for s in s_vals:
+        p      = pos_on_path(s)
+        p_next = pos_on_path(s + 0.01)
+        t, n, b = local_frame(p, p_next)     # <- drei Rückgaben
+
+        half_w, half_h, depth = w/2, h/2, step/2
+        corner_min = p - half_w*n - half_h*b - depth*t
+        corner_max = p + half_w*n + half_h*b + depth*t
+        draw_box(env, corner_min, corner_max, rgba=rgba)
+
+
+def draw_tube(env, pos_on_path, s_total,
+              d_inner=0.50,
+              thickness=0.02,
+              step=0.50,         # 0.50 m!
+              n_seg=8,           # 8 Segmente
+              rgba=np.array([0.0, 0.6, 1.0, 0.13])):
+    """
+    Zeichnet eine halbtransparente Röhre um die Centerline.
+    """
+    if env.unwrapped.sim.viewer is None:
+        return
+    viewer = env.unwrapped.sim.viewer.viewer
+    r = d_inner/2
+    n_seg = 16                         # 22.5° Auflösung
+
+    # vorberechnen
+    angles = np.linspace(0, 2*np.pi, n_seg+1)[:-1]
+    circle_xy = np.stack((np.cos(angles), np.sin(angles)), axis=-1) * r
+
+    # Tangente & lokale Achsen wie gehabt
+    def local_frame(p, p_next):
+        t = (p_next - p); t /= np.linalg.norm(t)+1e-9
+        n = np.array([-t[1], t[0], 0.0]); n/=np.linalg.norm(n)+1e-9
+        b = np.cross(t,n); b/=np.linalg.norm(b)+1e-9
+        return t,n,b
+
+    for s in np.arange(0, s_total, step):
+        p     = pos_on_path(s)
+        p_next= pos_on_path(s+0.01)
+        _, n, b = local_frame(p, p_next)
+
+        # 16 kleine Quader-Stücke als Linien anlegen
+        for i in range(n_seg):
+            p1_local = circle_xy[i]
+            p2_local = circle_xy[(i+1)%n_seg]
+
+            world1 = p + p1_local[0]*n + p1_local[1]*b
+            world2 = p + p2_local[0]*n + p2_local[1]*b
+            seg_vec = world2 - world1
+            length = np.linalg.norm(seg_vec)
+            if length < 1e-4: continue
+
+            size = np.array([thickness/2, thickness/2, length/2], dtype=np.float32)
+            mat  = _rotation_matrix_from_points(world1, world2).as_matrix().reshape(-1)
+            viewer.add_marker(
+                type=mujoco.mjtGeom.mjGEOM_BOX,
+                size=size,
+                pos=(world1+world2)/2,
+                mat=mat,
+                rgba=rgba,
+            )
+
+def draw_tube_splines(
+    env,
+    pos_on_path,
+    s_total,
+    d_inner=0.50,
+    n_lines=12,
+    step=0.2,
+    rgba=np.array([0.0, 0.6, 1.0, 0.3]),
+    thickness=2.0
+):
+    # Kreis-Offsets in lokalen (n,b) Koordinaten
+    r = d_inner / 2
+    angles = np.linspace(0, 2*np.pi, n_lines, endpoint=False)
+    circle_xy = np.stack((np.cos(angles), np.sin(angles)), axis=-1) * r
+
+    # Präpariere leere Listen für jede Linie
+    line_pts = [ [] for _ in range(n_lines) ]
+
+    # Hilfsfunktion wie in draw_tunnel
+    def local_frame(p, p_next):
+        t = p_next - p
+        t /= np.linalg.norm(t) + 1e-9
+        n = np.array([-t[1], t[0], 0.0])
+        n /= np.linalg.norm(n) + 1e-9
+        b = np.cross(t, n)
+        b /= np.linalg.norm(b) + 1e-9
+        return t, n, b
+
+    # Alle s-Werte durchlaufen
+    for s in np.arange(0, s_total, step):
+        p      = pos_on_path(s)
+        p_next = pos_on_path(min(s + 0.01, s_total))
+        _, n, b = local_frame(p, p_next)
+
+        # Für jede Linie den Welt-Punkt berechnen
+        for i, (cx, cy) in enumerate(circle_xy):
+            pt_world = p + cx * n + cy * b
+            line_pts[i].append(pt_world)
+
+    # Zeichne jede Linie in einem Rutsch
+    for pts in line_pts:
+        pts_arr = np.vstack(pts)  # Form (M,3)
+        draw_line(
+            env,
+            pts_arr,
+            rgba=rgba,
+            min_size=thickness,
+            max_size=thickness
+        )
+
+def draw_tube_dynamic(env, tube_cache,
+                      n_circle=12, rgba=np.array([0.0,0.6,1.0,0.3]),
+                      thickness=2.0):
+    """Zeichnet Kreisbögen durch alle Cached-Segmente."""
+    if not tube_cache:      # noch nichts gesammelt
+        return
+    # Kreis-Offsets vorbereiten
+    angles = np.linspace(0, 2*np.pi, n_circle, endpoint=False)
+    circle = np.stack([np.cos(angles), np.sin(angles)], axis=-1)
+
+    # Für jede der n_circle-Linien Punkte sammeln
+    lines = [[] for _ in range(n_circle)]
+    for c,n,b,w,h in tube_cache:
+        offs = circle * np.array([w/2, h/2])   # (12,2)
+        for k,(ox,oy) in enumerate(offs):
+            pt = c + ox*n + oy*b
+            lines[k].append(pt)
+
+    # Zeichnen
+    for pts in lines:
+        if len(pts) < 2:     # zu kurz
+            continue
+        draw_line(env, np.vstack(pts), rgba=rgba,
+                  min_size=thickness, max_size=thickness)

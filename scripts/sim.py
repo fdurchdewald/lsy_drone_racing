@@ -121,6 +121,10 @@ def simulate(
                     draw_line(env, fp,
                               rgba=np.array([1.0, 0.0, 0.0, 1.0]),
                               min_size=1.5, max_size=1.5)
+                    
+                # viewer = env.unwrapped.sim.viewer          # py-mujoco Viewer
+                # viewer.scn.ngeom = 0                       # löscht alle Geoms
+                # viewer.markers.clear()   
                 env.render()
 
             if terminated or truncated or controller_finished:
