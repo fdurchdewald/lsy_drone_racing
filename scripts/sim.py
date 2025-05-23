@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+import mujoco
 from typing import TYPE_CHECKING
 
 import fire
@@ -18,7 +19,7 @@ import gymnasium
 from gymnasium.wrappers.jax_to_numpy import JaxToNumpy
 import numpy as np
 
-from lsy_drone_racing.utils import draw_line, load_config, load_controller
+from lsy_drone_racing.utils.utils import draw_line, load_config, load_controller, draw_tunnel, draw_tube_splines, draw_tube_dynamic
 
 if TYPE_CHECKING:
     from ml_collections import ConfigDict
@@ -104,10 +105,15 @@ def simulate(
 
             # Draw both the planned path and the flown path every frame
             if config.sim.gui:
+
+                draw_tube_dynamic(env, controller.tunnel_cache,
+                                        n_circle=12, thickness=2.0)
+
+
                 # planned path: grün, Stärke 2
                 draw_line(env, path_points,
-                          rgba=np.array([0.0, 1.0, 0.0, 1.0]),
-                          min_size=2.0, max_size=2.0)
+                        rgba=np.array([0.0, 1.0, 0.0, 1.0]),
+                        min_size=2.0, max_size=2.0)
 
                 # tatsächlich geflogener Pfad: rot, Stärke 1.5
                 if len(flown_positions) >= 2:
@@ -115,7 +121,6 @@ def simulate(
                     draw_line(env, fp,
                               rgba=np.array([1.0, 0.0, 0.0, 1.0]),
                               min_size=1.5, max_size=1.5)
-
                 env.render()
 
             if terminated or truncated or controller_finished:
