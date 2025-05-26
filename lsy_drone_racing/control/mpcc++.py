@@ -22,15 +22,32 @@ from lsy_drone_racing.control import Controller
 if TYPE_CHECKING:
     from numpy.typing import NDArray
 
+
+# MPCC_CFG = dict(
+#     QC=2,
+#     QL=8,
+#     MU=0.000000000000000001,
+#     DVTHETA_MAX=0.4,
+#     N=15,
+#     T_HORIZON=1.5,
+#     RAMP_TIME=2.0,
+#     BARRIER_WEIGHT = 10,          # tunnel slack weight
+#     OBSTACLE_WEIGHT = 10000         # obstacle slack weight
+# )
 MPCC_CFG = dict(
-    QC=400,
-    QL=60,
-    MU=0.05,
-    DVTHETA_MAX=2.0,
-    N=15,
-    T_HORIZON=1.5,
-    RAMP_TIME=1.0,
+    QC=20,
+    QL=100,
+    MU=0.0001,
+    DVTHETA_MAX=2,
+    N=5,
+    T_HORIZON=0.5,
+    RAMP_TIME=2.0,
+    BARRIER_WEIGHT = 100,          # tunnel slack weight
+    OBSTACLE_WEIGHT = 1000         # obstacle slack weight
 )
+# define a single vertical cylinder obstacle by its top-center coordinate and radius
+OBSTACLE_TOP = [-0.5, 0.5, 2]  # replace with your actual coordinate
+OBSTACLE_RADIUS = 0.13
 
 
 
@@ -179,28 +196,29 @@ def export_quadrotor_ode_model() -> AcadosModel:
     # dbarrier_dpos = MX.gradient(barrier_cost, pos)
     # print("∥∇Barrier∥ symbolic:", np.linalg.norm(np.array(dbarrier_dpos)).round(3))
 
+    # soft-tunnel constraint weight
+      # tune this parameter as needed
 
 
-
-    # # ---------- additional MPCC costs ----------
-    # # gate-centre penalty every stage
-    # p_gate = vertcat(pgx, pgy, pgz)
-    # gate_err = pref - p_gate
-    # gate_cost = q_gate * (gate_err.T @ gate_err)
-    # # angular-rate penalty
-    # omega_vec = vertcat(r_cmd, p_cmd, y_cmd)
-    # omega_cost = Q_omega * (omega_vec.T @ omega_vec)
-    # # input-specific penalties
-    # df_cost = R_df * (df_cmd**2)
-    # dv_cost = R_dv * (dvtheta_cmd**2)
-
-    stage_cost = qc*ec_sq + ql*el_sq - mu*vtheta #+ barrier_cost
+    # add a small regularization on the inputs and include tunnel soft constraint
+    R_reg = 1e-1
+    stage_cost = (
+        qc * ec_sq
+        + ql * el_sq
+        - mu * vtheta
+        + R_reg * (df_cmd**2 + dr_cmd**2 + dp_cmd**2 + dy_cmd**2 + dvtheta_cmd**2)
+    )
     term_cost  = qc*ec_sq + ql*el_sq                 # Terminal ohne Barrier
 
 
 
     model = AcadosModel()
     model.name = model_name
+    # tunnel walls h1..h4 and cylindrical obstacle h_obs ≥ 0
+    ox, oy, oz = OBSTACLE_TOP
+    # horizontal (xy) distance from drone to obstacle center
+    h_obs = MX.sqrt((px - ox)**2 + (py - oy)**2) - OBSTACLE_RADIUS
+    model.con_h_expr = vertcat(h1, h2, h3, h4, h_obs)
     model.f_expl_expr = f
     model.f_impl_expr = None
     model.x = states
@@ -220,6 +238,16 @@ def create_ocp_solver(
     # set model
     model = export_quadrotor_ode_model()
     ocp.model = model
+    # soft tunnel constraints and obstacle
+    ocp.dims.nh = 5
+    ocp.constraints.lh = np.zeros(5)                 # h >= 0
+    ocp.constraints.uh = 1e7 * np.ones(5)  # large finite bound instead of inf
+    ocp.constraints.soft_constraint = "SLACK"         # enable soft constraints
+    # separate slack penalties: first 4 for tunnel, last 1 for obstacle
+    tunnel_w = MPCC_CFG["BARRIER_WEIGHT"]
+    obs_w    = MPCC_CFG["OBSTACLE_WEIGHT"]
+    w_soft = np.hstack([tunnel_w * np.ones(4), obs_w])
+    ocp.cost.W_soft = np.diag(w_soft)
 
     # Get Dimensions
     nx = model.x.rows()
@@ -262,17 +290,17 @@ def create_ocp_solver(
     ocp.constraints.x0 = np.zeros((nx))
 
     # Solver Options
-    ocp.solver_options.qp_solver = "FULL_CONDENSING_HPIPM"  # FULL_CONDENSING_QPOASES
-    ocp.solver_options.hessian_approx = "GAUSS_NEWTON"
+    ocp.solver_options.qp_solver = "PARTIAL_CONDENSING_HPIPM"
+    ocp.solver_options.hessian_approx = "EXACT"  # GAUSS_NEWTON
     ocp.solver_options.integrator_type = "ERK"
     ocp.solver_options.nlp_solver_type = "SQP"  # SQP_RTI
-    ocp.solver_options.tol = 1e-5
+    ocp.solver_options.tol = 1e-3        # require NLP residual < 1e-4
 
     ocp.solver_options.qp_solver_cond_N = N
     ocp.solver_options.qp_solver_warm_start = 1
 
     ocp.solver_options.nlp_solver_max_iter = 300
-    ocp.solver_options.qp_solver_iter_max = 400   # statt 120
+    ocp.solver_options.qp_solver_iter_max = 300  # limit QP to 100 iterations
 
     ocp.solver_options.regularize_method  = "CONVEXIFY"
     ocp.solver_options.line_search_use_sufficient_descent = 1
@@ -332,7 +360,6 @@ class MPController(Controller):
 
         # Store splines for fast evaluation
         self._cs_x, self._cs_y, self._cs_z = cs_x, cs_y, cs_z
-
         # Keep medium‑resolution points only for visualisation
         vis_s = np.linspace(0.0, self.s_total, 200)
         self.traj_points = np.column_stack((cs_x(vis_s), cs_y(vis_s), cs_z(vis_s)))
@@ -346,7 +373,7 @@ class MPController(Controller):
 
         self.acados_ocp_solver, self.ocp = create_ocp_solver(self.T_HORIZON, self.N)
 
-
+    
         self.last_f_collective = 0.3
         self.last_rpy_cmd = np.zeros(3)
         self.last_f_cmd = 0.3
@@ -354,10 +381,13 @@ class MPController(Controller):
         self.last_vtheta = 0.0
         self.config = config
         self.finished = False
-
-        self._new_target = True
+        self._gate_idx = 0
+        self._use_normal_tunnel = True  # use normal tunnel geometry
+        self._tunnel_gen = True
+        self._target = True
         self.start = True
         self._ref_point = np.zeros(3)
+        self.safe_pos = np.zeros(3)  
         # Store predicted theta trajectory for reference in next iteration
         self._predicted_theta = np.zeros(self.N + 1)
         def _pos_on_path(s: float) -> np.ndarray:
@@ -366,7 +396,10 @@ class MPController(Controller):
                             self._cs_y(s_wrap),
                             self._cs_z(s_wrap)])
         self.pos_on_path = _pos_on_path          # <-- expose helper
-        self.tunnel_cache: list = []             # (für Debug/Plot)
+        self.tunnel_cache: list = []
+        self._target_gate_pos = obs["gates_pos"][obs["target_gate"]]             # (für Debug/Plot)
+        # flag to generate a straight tunnel to the gate once
+        self._use_line_tunnel = False
 
     def compute_control(
         self, obs: dict[str, NDArray[np.floating]], info: dict | None = None
@@ -381,12 +414,20 @@ class MPController(Controller):
         Returns:
             The collective thrust and orientation [t_des, r_des, p_des, y_des] as a numpy array.
         """
-        target_gate_pos = obs["gates_pos"][obs["target_gate"]]  # 3‑D np.array
         # Optional debug print:
         # print("Target gate:", target_gate_pos)
         # finish when progress (theta) reaches the end of the spline trajectory
-        if all(obs['gates_visited']):
+        if False:
+            print('Finished')
             self.finished = True
+        # detect new gate and enable line tunnel
+        if not np.allclose(self._target_gate_pos, obs["gates_pos"][obs["target_gate"]]):
+            print('switching to line tunnel')
+            self.tunnel_cache = []
+
+            self._target_gate_pos = obs["gates_pos"][obs["target_gate"]]
+            self._use_line_tunnel = True
+            self.tunnel_cache.clear()
         q = obs["quat"]
         r = R.from_quat(q)
         # Convert to Euler angles in XYZ order
@@ -413,6 +454,20 @@ class MPController(Controller):
         def pos_on_path(s: float) -> np.ndarray:
             s_wrap = s % self.s_total
             return np.array([self._cs_x(s_wrap), self._cs_y(s_wrap), self._cs_z(s_wrap)])
+
+        def pos_on_line(p1: np.ndarray, p2: np.ndarray, s: float) -> np.ndarray:
+            """Linear interpolation between two 3D points p1 and p2.
+
+            Args:
+                p1, p2: np.ndarray of shape (3,) defining endpoints.
+                s: float in [0,1], interpolation parameter.
+
+            Returns:
+                3D point on the line segment from p1 to p2.
+            """  # noqa: D205
+            # clamp s between 0 and 1
+            s_clamped = max(0.0, min(1.0, s))
+            return (1 - s_clamped) * p1 + s_clamped * p2
         
         theta_pred = self.last_theta + self.last_vtheta * np.linspace(
                 0.0, self.T_HORIZON, self.N + 1
@@ -421,27 +476,55 @@ class MPController(Controller):
             print(f"θ={self.last_theta:6.2f}  vθ={self.last_vtheta:4.2f}")
 
 
+        # upon gate change, generate full straight tunnel once
+
         for j in range(self.N):
             s_ref = theta_pred[j]
+            # compute default reference point on path
             pref = self.pos_on_path(s_ref)
+            self._ref_point = pref  # store for visualisation
             pref_next = self.pos_on_path(s_ref + 0.001)
             tangent = unit(pref_next - pref)
+            step_size = 0.4                                  # z.B. 5 cm
+            pref_ahead = pref + step_size * tangent
             # --- Tunnel-Geometrie -------------------------------------------------
-            c, n, b, w, h = tunnel_bounds(self.pos_on_path, s_ref)   # w,h aktuell noch konstant
+            if self._use_line_tunnel:
+                p2 = obs["gates_pos"][obs["target_gate"]]
+                # normalized parameter along the straight line [0,1]
+                s_line = j / (self.N - 1) if self.N > 1 else 0.0
+                # build control points array for the spline: from current safe_pos to gate midpoint
+                points = np.vstack([self.safe_pos, p2 ,pref_ahead])
+                # extend line so that p2 is midpoint between safe_pos and new endpoint
+                p3 = 2 * p2 - self.safe_pos
+                #c, n, b, w, h = spline_tunnel_bounds(points, s_line, w_nom=0.25, h_nom=0.25)
+                c, n, b, w, h = line_tunnel_bounds(self.safe_pos, p3, s_line, w_nom=0.15, h_nom=0.15)
+                self._use_normal_tunnel = False
+                if self._gate_idx != obs["target_gate"]:
+                    self._gate_idx = obs["target_gate"]
+                    self._use_normal_tunnel = True
+                    self._use_line_tunnel = False
+            if self._use_normal_tunnel:
+                self.safe_pos = obs["pos"]  # save current position for tunnel generation
+                c, n, b, w, h = tunnel_bounds(self.pos_on_path, s_ref, w_nom=0.25, h_nom=0.25)   # w,h aktuell noch konstant
+            self.tunnel_cache.append((c, n, b, w, h))
             whalf = 0.5 * w
             hhalf = 0.5 * h
 
-
             pos = obs["pos"]
-       
 
             qc_val = MPCC_CFG["QC"]         # evtl. auf 5000+ erhöhen
             ql_val = MPCC_CFG["QL"]
             ramp   = min(1.0, (self._tick*self.dt) / MPCC_CFG["RAMP_TIME"])
             mu_val = MPCC_CFG["MU"] * ramp if j < self.N else 0.0
 
+            # if straight-line tunnel is active, override pref to the tunnel center
+            if self._use_line_tunnel:
+                pref_i = c
+            else:
+                pref_i = pref
+
             p_vec = np.concatenate([
-                pref,                 # 0-2
+                pref_i,               # 0-2: reference point (path or tunnel center)
                 tangent,              # 3-5
                 [qc_val, ql_val, mu_val],   # 6-8
                 n,                    # 9-11
@@ -460,27 +543,20 @@ class MPController(Controller):
                 e_n_dbg = np.dot(obs["pos"] - pref, n_dbg)
                 e_b_dbg = np.dot(obs["pos"] - pref, b_dbg)
 
-                print(
-                    f"[t{self._tick:04d}] "
-                    f"s_ref={s_ref:5.2f}  "
-                    f"ec={np.linalg.norm(obs['pos']-pref):.3f}  "
-                    f"e_n={e_n_dbg:+.3f}/{wh_dbg:.2f}  "
-                    f"e_b={e_b_dbg:+.3f}/{hh_dbg:.2f}"
-                )
-
-
+                # print(
+                #     f"[t{self._tick:04d}] "
+                #     f"s_ref={s_ref:5.2f}  "
+                #     f"ec={np.linalg.norm(obs['pos']-pref):.3f}  "
+                #     f"e_n={e_n_dbg:+.3f}/{wh_dbg:.2f}  "
+                #     f"e_b={e_b_dbg:+.3f}/{hh_dbg:.2f}"
+                # )
 
             delta = pos - pref
-
             cont_err = delta - (delta @ tangent) * tangent
             ec_norm = np.linalg.norm(cont_err)
-            
-            c, n, b, w, h = tunnel_bounds(self.pos_on_path, s_ref)
 
             # --- debug: print all cost components for stage 0 -------------
             if j == 0:
-
-                self.tunnel_cache.append((c, n, b, w, h))
                 # errors
                 lag_err = delta @ tangent
                 el_sq_dbg = lag_err**2
@@ -492,7 +568,7 @@ class MPController(Controller):
                 cost_mu = -mu_val * self.last_vtheta
                 cost_df = 0.0
                 cost_dv = 0.0
-                gate_err_dbg = np.linalg.norm(pos - target_gate_pos) ** 2
+                gate_err_dbg = np.linalg.norm(pos - self._target_gate_pos) ** 2
                 # cost_gate = q_gate * gate_err_dbg
                 # omega cost uses current cmd values
                 # omega_vec_dbg = self.last_rpy_cmd
@@ -514,7 +590,7 @@ class MPController(Controller):
         p_terminal = np.concatenate([
             self.pos_on_path(theta_pred[-1]),
             tangent,
-            [qc_val, ql_val, 0.0],
+            [qc_val, ql_val, mu_val],  # qc, ql, mu
             n, b,
             [whalf, hhalf],
         ])
@@ -536,23 +612,24 @@ class MPController(Controller):
 
 
         status = self.acados_ocp_solver.solve()
+        # im compute_control, nach dem Solve und dem Auslesen von x0_sol:
 
         if status != 0:                       # 0 = OK
             print(f"[acados] Abbruch mit Status {status}")
             return np.array([self.last_f_cmd, *self.last_rpy_cmd])
 
         lam = self.acados_ocp_solver.get(0, "lam")  # duals of dynamics
-        print(f"dual_norm={np.linalg.norm(lam):.1e}")
+        # print(f"dual_norm={np.linalg.norm(lam):.1e}")
         qp_stat = self.acados_ocp_solver.get_stats("qp_stat")[-1]   # HPIPM exit flag
         qp_it   = self.acados_ocp_solver.get_stats("qp_iter")[-1]
-        print(f"QP flag={qp_stat}  qp_it={qp_it}")
-
-
-
-        # 3a) HPIPM-Residuals
+        # print(f"QP flag={qp_stat}  qp_it={qp_it}")
         res = self.acados_ocp_solver.get_stats("residuals")
-        print(f"max_res={np.max(res):.1e}")
-
+        max_res = np.max(res)
+        # print(f"max_res={max_res:.1e}")
+        # Check convergence
+        if qp_it > 100 or max_res > 1e-4:
+            # print("Warning: QP did not converge within 100 iterations or residual >1e-4")
+            pass
         # 3b) min h_i der optimalen Stage-0-Lösung
         x0_sol = self.acados_ocp_solver.get(0, "x")
         p0_sol = self.acados_ocp_solver.get(0, "p")
@@ -562,7 +639,7 @@ class MPController(Controller):
         d_sol = x0_sol[0:3] - pref_sol
         e_n = np.dot(d_sol, n_sol);  e_b = np.dot(d_sol, b_sol)
         h_vals = [wh_sol - e_n, wh_sol + e_n, hh_sol - e_b, hh_sol + e_b]
-        print(f"h_min={min(h_vals):+.3f}")
+        # print(f"h_min={min(h_vals):+.3f}")
 
 
 
@@ -584,7 +661,7 @@ class MPController(Controller):
 
         cmd = x1[10:14]
         u_dbg = cmd
-        print(f"cmd f={u_dbg[0]:.2f}  rpy={u_dbg[1:]} ")
+        # print(f"cmd f={u_dbg[0]:.2f}  rpy={u_dbg[1:]} ")
 
         return cmd
 
@@ -615,6 +692,84 @@ class MPController(Controller):
         """Get the reference point."""
         return self._ref_point
     
+
+def line_tunnel_bounds(p1: np.ndarray, p2: np.ndarray, s: float,
+                       w_nom: float = 0.4, h_nom: float = 0.4):
+    """Compute tunnel bounds along a straight line between p1 and p2.
+    
+    Args:
+        p1, p2: Endpoints of the line segment (3D points).
+        s: parameter in [0,1] indicating interpolation between p1 and p2.
+        w_nom, h_nom: nominal width/height of the tunnel.
+
+    Returns:
+        c: center point on line at parameter s,
+        n: lateral normal vector,
+        b: vertical binormal vector,
+        w_nom, h_nom.
+    """
+    # center point by linear interpolation
+    c = (1 - s) * p1 + s * p2
+    # direction from p1 to p2
+    d = p2 - p1
+    d = d / (np.linalg.norm(d) + 1e-9)
+    # normal in horizontal plane
+    n = np.array([-d[1], d[0], 0.0])
+    n = n / (np.linalg.norm(n) + 1e-9)
+    # binormal vertical
+    b = np.cross(d, n)
+    b = b / (np.linalg.norm(b) + 1e-9)
+    return c, n, b, w_nom, h_nom
+
+# Spline-based tunnel function that passes through multiple points
+def spline_tunnel_bounds(points: np.ndarray, s: float,
+                         w_nom: float = 0.4, h_nom: float = 0.4):
+    """
+    Compute tunnel bounds along a spline through given 3D points.
+    Args:
+        points: array of shape (M,3), control points defining the spline.
+        s: parameter in [0,1] indicating interpolation along the spline.
+        w_nom, h_nom: nominal width/height of the tunnel.
+    Returns:
+        c: center point on spline at parameter s,
+        n: lateral normal vector,
+        b: vertical binormal vector,
+        w_nom, h_nom.
+    """
+    # extend points so tunnel is open at both ends
+    first, second = points[0], points[1]
+    last, before_last = points[-1], points[-2]
+    p0 = 2 * first - second
+    p_end = 2 * last - before_last
+    ext_points = np.vstack([p0, points, p_end])
+    # parameter grid for control points
+    M = ext_points.shape[0]
+    t_grid = np.linspace(0.0, 1.0, M)
+    # build cubic splines for x,y,z
+    cs_x = CubicSpline(t_grid, ext_points[:,0])
+    cs_y = CubicSpline(t_grid, ext_points[:,1])
+    cs_z = CubicSpline(t_grid, ext_points[:,2])
+    # center point
+    c = np.array([cs_x(s), cs_y(s), cs_z(s)])
+    # tangent vector
+    ds = 1e-3
+    cp = np.array([cs_x(min(s+ds,1.0)), cs_y(min(s+ds,1.0)), cs_z(min(s+ds,1.0))])
+    t = cp - c
+    t = t / (np.linalg.norm(t) + 1e-9)
+    # define normal via projection of global up-vector to avoid twisting
+    up = np.array([0.0, 0.0, 1.0])
+    n = up - np.dot(up, t) * t
+    n_norm = np.linalg.norm(n)
+    if n_norm < 1e-6:
+        # fallback normal if tangent aligned with up
+        n = np.array([1.0, 0.0, 0.0])
+    else:
+        n = n / n_norm
+    # binormal as cross-product to complete right-handed frame
+    b = np.cross(t, n)
+    b = b / (np.linalg.norm(b) + 1e-9)
+    return c, n, b, w_nom, h_nom
+
 def tunnel_bounds(pos_on_path, s: float,
                 w_nom: float = 0.4, h_nom: float = 0.4):
     """Berechne Center-, Normal-, Binormal-Vektor & Breite/Höhe."""
