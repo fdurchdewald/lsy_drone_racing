@@ -19,7 +19,7 @@ import gymnasium
 from gymnasium.wrappers.jax_to_numpy import JaxToNumpy
 import numpy as np
 
-from lsy_drone_racing.utils.utils import draw_line, load_config, load_controller, draw_tunnel, draw_tube_splines, draw_tube_dynamic
+from lsy_drone_racing.utils.utils import draw_line, load_config, load_controller, draw_tunnel, draw_tube_splines, draw_tube_dynamic, draw_point, draw_cylinder_obstacle
 
 if TYPE_CHECKING:
     from ml_collections import ConfigDict
@@ -35,6 +35,7 @@ def simulate(
     controller: str | None = None,
     n_runs: int = 1,
     gui: bool | None = True,
+    visualize: bool = True,
 ) -> list[float]:
     """Evaluate the drone controller over multiple episodes.
 
@@ -89,7 +90,6 @@ def simulate(
 
         i = 0
         fps = 60
-
         while True:
             curr_time = i / config.env.freq
 
@@ -105,23 +105,30 @@ def simulate(
 
             # Draw both the planned path and the flown path every frame
             if config.sim.gui:
+                if visualize:
+                    tunnel = controller.tunnel_cache
+                    if len(tunnel) > 80:
+                        tunnel = tunnel[-80:]
+                    draw_tube_dynamic(env, tunnel,
+                        n_circle=12, thickness=2.0)
 
-                draw_tube_dynamic(env, controller.tunnel_cache,
-                                        n_circle=12, thickness=2.0)
 
+                    # planned path: grün, Stärke 2
+                    # draw_line(env, path_points,
+                    #         rgba=np.array([0.0, 1.0, 0.0, 1.0]),
+                    #         min_size=2.0, max_size=2.0)
 
-                # planned path: grün, Stärke 2
-                draw_line(env, path_points,
-                        rgba=np.array([0.0, 1.0, 0.0, 1.0]),
-                        min_size=2.0, max_size=2.0)
+                    # # tatsächlich geflogener Pfad: rot, Stärke 1.5
+                    # if len(flown_positions) >= 2:
+                    #     fp = np.vstack(flown_positions)
+                    #     draw_line(env, fp,
+                    #             rgba=np.array([1.0, 0.0, 0.0, 1.0]),
+                    #             min_size=1.5, max_size=1.5)
+                    point = controller.get_ref_point()
+                    draw_point(env, point)
+                    #point = np.array([-0.5, 0.5, 1.4])
+                    #draw_cylinder_obstacle(env, point)
 
-                # tatsächlich geflogener Pfad: rot, Stärke 1.5
-                if len(flown_positions) >= 2:
-                    fp = np.vstack(flown_positions)
-                    draw_line(env, fp,
-                              rgba=np.array([1.0, 0.0, 0.0, 1.0]),
-                              min_size=1.5, max_size=1.5)
-                    
                 # viewer = env.unwrapped.sim.viewer          # py-mujoco Viewer
                 # viewer.scn.ngeom = 0                       # löscht alle Geoms
                 # viewer.markers.clear()   

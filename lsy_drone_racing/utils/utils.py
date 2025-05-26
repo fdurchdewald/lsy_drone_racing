@@ -110,6 +110,53 @@ def draw_point(
         type=mujoco.mjtGeom.mjGEOM_SPHERE, size=size_vec, pos=point, mat=mat, rgba=rgba
     )
 
+# Draw a vertical cylinder obstacle given its top-center point
+def draw_cylinder_obstacle(
+    env: RaceCoreEnv,
+    top_point: NDArray,  # shape (3,)
+    radius: float = 0.1,
+    height: float | None = None,
+    rgba: NDArray | None = None,
+):
+    """Draw a vertical cylindrical obstacle given its top-center point.
+
+    Args:
+        env: The drone racing environment.
+        top_point: np.array([x, y, z]) coordinates of the cylinder’s top center.
+        radius: Radius of the cylinder (in meters).
+        height: Height of the cylinder (in meters).
+        rgba: Optional RGBA color (default: semi-transparent red).
+    """
+    top_point = np.asarray(top_point, dtype=np.float32)
+    assert top_point.shape == (3,), "Top point must be a 3D coordinate"
+    # if height not given, draw down to the ground (z=0)
+    if height is None:
+        height = top_point[2]
+
+    sim = env.unwrapped.sim
+    if sim.viewer is None:
+        return
+    viewer = sim.viewer.viewer
+
+    # Default color: semi-transparent red
+    if rgba is None:
+        rgba = np.array([1.0, 0.0, 0.0, 0.5], dtype=np.float32)
+
+    # Compute the cylinder's center: offset down by half the height
+    center = top_point - np.array([0.0, 0.0, height / 2], dtype=np.float32)
+    # Cylinder size vector: (radius, radius, half-height)
+    size = np.array([radius, radius, height], dtype=np.float32)
+
+    # Identity rotation for vertical alignment
+    mat = np.eye(3, dtype=np.float32).reshape(-1)
+    viewer.add_marker(
+        type=mujoco.mjtGeom.mjGEOM_CYLINDER,
+        size=size,
+        pos=center,
+        mat=mat,
+        rgba=rgba
+    )
+
 
 def draw_line(
     env: RaceCoreEnv,
