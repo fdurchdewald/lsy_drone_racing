@@ -107,16 +107,14 @@ def simulate(
             if config.sim.gui:
                 if visualize:
                     tunnel = controller.tunnel_cache
-                    if len(tunnel) > 80:
-                        tunnel = tunnel[-80:]
                     draw_tube_dynamic(env, tunnel,
                         n_circle=12, thickness=2.0)
 
 
                     # planned path: grün, Stärke 2
-                    # draw_line(env, path_points,
-                    #         rgba=np.array([0.0, 1.0, 0.0, 1.0]),
-                    #         min_size=2.0, max_size=2.0)
+                    draw_line(env, path_points,
+                            rgba=np.array([0.0, 1.0, 0.0, 1.0]),
+                            min_size=2.0, max_size=2.0)
 
                     # # tatsächlich geflogener Pfad: rot, Stärke 1.5
                     # if len(flown_positions) >= 2:
@@ -126,6 +124,11 @@ def simulate(
                     #             min_size=1.5, max_size=1.5)
                     point = controller.get_ref_point()
                     draw_point(env, point)
+                    planned_traj = controller.get_planned_trajectory()
+                    draw_line(env, planned_traj,
+                            rgba=np.array([0.0, 0.0, 1.0, 1.0]),
+                            min_size=2.0, max_size=2.0)
+
                     #point = np.array([-0.5, 0.5, 1.4])
                     #draw_cylinder_obstacle(env, point)
 

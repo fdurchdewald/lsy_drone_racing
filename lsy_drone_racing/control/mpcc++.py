@@ -388,6 +388,8 @@ class MPController(Controller):
         self.start = True
         self._ref_point = np.zeros(3)
         self.safe_pos = np.zeros(3)  
+        self._planned_traj = np.zeros((self.N + 1, 3))
+
         # Store predicted theta trajectory for reference in next iteration
         self._predicted_theta = np.zeros(self.N + 1)
         def _pos_on_path(s: float) -> np.ndarray:
@@ -477,6 +479,11 @@ class MPController(Controller):
 
 
         # upon gate change, generate full straight tunnel once
+        planned_traj = np.zeros((self.N + 1, 3))
+        for j in range(self.N + 1):
+            xj = self.acados_ocp_solver.get(j, "x")
+            planned_traj[j] = xj[:3]   # first three state entries: px, py, pz
+        self._planned_traj = planned_traj
 
         for j in range(self.N):
             s_ref = theta_pred[j]
@@ -487,6 +494,7 @@ class MPController(Controller):
             tangent = unit(pref_next - pref)
             step_size = 0.4                                  # z.B. 5 cm
             pref_ahead = pref + step_size * tangent
+
             # --- Tunnel-Geometrie -------------------------------------------------
             if self._use_line_tunnel:
                 p2 = obs["gates_pos"][obs["target_gate"]]
@@ -691,6 +699,10 @@ class MPController(Controller):
     def get_ref_point(self) -> NDArray[np.floating]:
         """Get the reference point."""
         return self._ref_point
+        
+    def get_planned_trajectory(self) -> NDArray[np.floating]:
+        """Return the list of 3‑D waypoints (N+1) that the MPC currently plans."""
+        return self._planned_traj
     
 
 def line_tunnel_bounds(p1: np.ndarray, p2: np.ndarray, s: float,
@@ -779,4 +791,58 @@ def tunnel_bounds(pos_on_path, s: float,
     n      = np.array([-t[1], t[0], 0.0]); n /= np.linalg.norm(n) + 1e-9
     b      = np.cross(t, n);               b /= np.linalg.norm(b) + 1e-9
     return c, n, b, w_nom, h_nom
+
+
+
+def gate_frame_constraints(pos, gate_pos, gate_quat, half_extents, frame_thickness):
+    """
+    Liefert 4*4 Constraints für die vier Balken eines Gates.
+    pos: Drohnenposition (MX)
+    gate_pos: Mittelpunkt des Gates (np.array, shape (3,))
+    gate_quat: Quaternion des Gates (np.array, shape (4,))
+    half_extents: Loch-Halbachsen (np.array, shape (3,))
+    frame_thickness: Breite der Balken (float)
+    """
+    # Hilfsfunktionen für Rotation
+    from scipy.spatial.transform import Rotation as R
+    Rmat = R.from_quat(gate_quat).as_matrix()
+
+    w, d, h = half_extents * 2
+    t = frame_thickness
+    d_half = half_extents[1]
+
+    # Balken-Geometrien (wie in draw_gates)
+    size_vert = np.array([t / 2, d_half, (h + 2 * t) / 2])
+    size_horiz = np.array([(w + 2 * t) / 2, d_half, t / 2])
+
+    offs_left = np.array([-(w / 2 + t / 2), 0.0, 0.0])
+    offs_right = -offs_left
+    offs_bottom = np.array([0.0, 0.0, -(h / 2 + t / 2)])
+    offs_top = -offs_bottom
+
+    # Liste aller Balken (Offset, Größe)
+    offsets = [
+        (offs_left, size_vert),
+        (offs_right, size_vert),
+        (offs_bottom, size_horiz),
+        (offs_top, size_horiz),
+    ]
+
+    constraints = []
+    for off_local, size in offsets:
+        c = gate_pos + Rmat @ off_local  # Mittelpunkt des Balkens im Weltkoordinatensystem
+        n = Rmat[:, 0]  # x-Achse des Balkens (lokal)
+        b = Rmat[:, 2]  # z-Achse des Balkens (lokal)
+        whalf, hhalf = size[0], size[2]
+        # Rechteck-Constraint wie Tunnel
+        e_n = (pos - c).T @ n
+        e_b = (pos - c).T @ b
+        constraints += [
+            whalf - e_n,
+            whalf + e_n,
+            hhalf - e_b,
+            hhalf + e_b,
+        ]
+    return constraints
+
 
