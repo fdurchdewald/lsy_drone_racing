@@ -83,7 +83,6 @@ def simulate(
         # --- Prepare a permanent sample of the spline trajectory ---
         # num_samples = 200
         # t_lin = np.linspace(0, 1, num_samples)
-        path_points = controller.get_trajectory()
 
         # --- Prepare storage for the actually flown path ---
         flown_positions: list[np.ndarray] = []
@@ -106,6 +105,7 @@ def simulate(
             # Draw both the planned path and the flown path every frame
             if config.sim.gui:
                 if visualize:
+                    path_points = controller.get_trajectory()
                     tunnel = controller.tunnel_cache
                     draw_tube_dynamic(env, tunnel,
                         n_circle=12, thickness=2.0)
