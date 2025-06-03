@@ -19,7 +19,7 @@ import gymnasium
 from gymnasium.wrappers.jax_to_numpy import JaxToNumpy
 import numpy as np
 
-from lsy_drone_racing.utils.utils import draw_line, load_config, load_controller, draw_tunnel, draw_tube_splines, draw_tube_dynamic, draw_point, draw_cylinder_obstacle
+from lsy_drone_racing.utils.utils import *
 
 if TYPE_CHECKING:
     from ml_collections import ConfigDict
@@ -106,10 +106,6 @@ def simulate(
             if config.sim.gui:
                 if visualize:
                     path_points = controller.get_trajectory()
-                    tunnel = controller.tunnel_cache
-                    draw_tube_dynamic(env, tunnel,
-                        n_circle=12, thickness=2.0)
-
 
                     # planned path: grün, Stärke 2
                     draw_line(env, path_points,
@@ -122,13 +118,17 @@ def simulate(
                     #     draw_line(env, fp,
                     #             rgba=np.array([1.0, 0.0, 0.0, 1.0]),
                     #             min_size=1.5, max_size=1.5)
-                    point = controller.get_ref_point()
-                    draw_point(env, point)
+                    # point = controller.get_ref_point()
+                    # draw_point(env, point)
                     planned_traj = controller.get_planned_trajectory()
                     draw_line(env, planned_traj,
                             rgba=np.array([0.0, 0.0, 1.0, 1.0]),
                             min_size=2.0, max_size=2.0)
-
+                    region = controller.get_tunnel_regions()
+                    draw_tunnel_regions_from_corners(env, region)
+                    planning_points = controller.get_planning_points()
+                    # for point in planning_points:
+                    #     draw_point(env, point, rgba=np.array([1.0, 0.5, 0.0, 1.0]))
                     #point = np.array([-0.5, 0.5, 1.4])
                     #draw_cylinder_obstacle(env, point)
 
@@ -138,6 +138,8 @@ def simulate(
                 env.render()
 
             if terminated or truncated or controller_finished:
+                print(terminated)
+                print(truncated)
                 break
 
             i += 1

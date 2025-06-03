@@ -502,3 +502,93 @@ def draw_tube_dynamic(env, tube_cache,
             continue
         draw_line(env, np.vstack(pts), rgba=rgba,
                   min_size=thickness, max_size=thickness)
+
+
+# Draw tunnel cross-section outlines given corner points for each region
+def draw_tunnel_regions_from_corners(
+    env: "RaceCoreEnv",
+    regions: np.ndarray,  # shape (N, 4, 3), corners for each stage
+    rgba: np.ndarray | None = None,
+    thickness: float = 2.0
+) -> None:
+    """
+    Draws tunnel cross-section outlines given the 4 corner points for each stage.
+    regions[j] should be a (4,3) array of corners in world coordinates for stage j.
+    """
+    sim = env.unwrapped.sim
+    if sim.viewer is None:
+        return
+    viewer = sim.viewer.viewer
+
+    N = regions.shape[0]
+    assert regions.ndim == 3 and regions.shape[1:] == (4, 3), "regions must be shape (N,4,3)"
+
+    if rgba is None:
+        rgba = np.array([0.0, 1.0, 1.0, 0.3], dtype=np.float32)  # default cyan
+
+    for j in range(N):
+        poly = regions[j]
+        # Close loop by appending first corner
+        pts = np.vstack((poly, poly[0]))
+        draw_line(env, pts, rgba=rgba, min_size=thickness, max_size=thickness)
+
+# Draw gate constraint rectangles given the 4 corner points for each gate region
+def draw_gate_constraints_from_corners(
+    env: "RaceCoreEnv",
+    regions: np.ndarray,  # shape (M, 4, 3), corners for each gate constraint region
+    rgba: np.ndarray | None = None,
+    thickness: float = 3.0
+) -> None:
+    """
+    Draws gate constraint rectangles given the 4 corner points for each gate region.
+    regions[j] should be a (4,3) array of corners in world coordinates for gate j.
+    """
+    sim = env.unwrapped.sim
+    if sim.viewer is None:
+        return
+    viewer = sim.viewer.viewer
+
+    M = regions.shape[0]
+    assert regions.ndim == 3 and regions.shape[1:] == (4, 3), "regions must be shape (M,4,3)"
+
+    if rgba is None:
+        rgba = np.array([1.0, 0.0, 0.0, 0.5], dtype=np.float32)  # default semi-transparent red
+
+    for j in range(M):
+        poly = regions[j]
+        # Close loop by appending first corner
+        pts = np.vstack((poly, poly[0]))
+        draw_line(env, pts, rgba=rgba, min_size=thickness, max_size=thickness)
+
+
+def draw_obstacle_constraints(
+    env: "RaceCoreEnv",
+    obstacles_top_pos: np.ndarray,  # shape (4, 3): [x, y, z_top] jeder Säule
+    radius: float = 0.2,
+    rgba: np.ndarray | None = None
+) -> None:
+    """
+    Zeichnet vertikale Zylinder‐Hindernisse durch Angabe ihrer Top‐Mittelpunkt‐Koordinaten.
+
+    Args:
+        env: Die DroneRacing‐Umgebung.
+        obstacles_top_pos: ndarray der Form (4,3), jede Zeile ist [x, y, z_top] der Säulen‐Spitze.
+                           Die Säule geht von Boden (z=0) bis z_top.
+        radius: Radius jeder Zylinder‐Säule (Standard: 0.2 m).
+        rgba: Optionaler RGBA‐Farbwert für die Zylinder (Standard: halbtransparentes Rot).
+    """
+    sim = env.unwrapped.sim
+    if sim.viewer is None:
+        return
+
+    # Default‐Farbe: halbtransparentes Rot
+    if rgba is None:
+        rgba = np.array([1.0, 0.0, 0.0, 0.5], dtype=np.float32)
+
+    # Jede Säule als Zylinder von z=0 bis z=z_top zeichnen
+    for top_point in obstacles_top_pos:
+        # top_point muss exakt 3 Komponenten haben: [x, y, z_top]
+        assert top_point.shape == (3,), "Top-Point muss ein 3D-Koordinate sein"
+        # draw_cylinder_obstacle erwartet (env, top_center, radius, height, rgba)
+        # Höhe = top_point[2], Zylinder geht von 0 bis z_top
+        draw_cylinder_obstacle(env, top_point, radius=radius, height=top_point[2], rgba=rgba)
