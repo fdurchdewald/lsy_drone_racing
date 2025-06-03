@@ -36,17 +36,18 @@ if TYPE_CHECKING:
 # )
 
 MPCC_CFG = dict(
-    QC=20,
-    QL=100,
-    MU=0.05,
+    QC=1,
+    QL=8,
+    MU=10,
     DVTHETA_MAX=1,
-    N=5,
-    T_HORIZON=0.5,
+    N=20,
+    T_HORIZON=1,
     RAMP_TIME=2.0,
-    BARRIER_WEIGHT = 100, 
-    TUNNEL_WIDTH = 0.25,  # nominal tunnel width
-    TUNNEL_SLACK_LINEAR = 0.0,
-    TUNNEL_SLACK_QUAD = 0.0
+    BARRIER_WEIGHT =3, 
+    TUNNEL_WIDTH = 0.4, 
+    GATE_WIDTH = 0.25,  # reduced width of gate opening
+    Q_OMEGA = 1,          # weight for rotational rates (roll, pitch, yaw)
+    R_VTHETA = 1.0,        # quadratic penalty on vtheta
 )
 
 
@@ -93,20 +94,17 @@ def export_quadrotor_ode_model() -> AcadosModel:
     vtheta = MX.sym("vtheta")
     dvtheta_cmd = MX.sym("dvtheta_cmd")
 
-    #MPCC++
-    tunnel_n = MX.sym("e_n") 
-    tunnel_b = MX.sym("e_b")
-    # parameter vector: [pref(3), t(3), qc, ql, mu, pg(3), q_gate,   R_DF, R_DV, Q_OMEGA]
-    # 
+
     p = MX.sym("p", 17)
     px_r, py_r, pz_r = p[0], p[1], p[2]
     tx,   ty,   tz   = p[3], p[4], p[5]
     qc,   ql,   mu   = p[6], p[7], p[8]
-    nx, ny, nz   = p[9],  p[10], p[11]
-    bx, by, bz   = p[12], p[13], p[14]
-    whalf, hhalf = p[15], p[16]
-    n_vec = vertcat(nx, ny, nz)
-    b_vec = vertcat(bx, by, bz)
+    nx, ny, nz = p[9],  p[10], p[11]
+    bx, by, bz = p[12], p[13], p[14]
+    w_half     = p[15]
+    h_half     = p[16]
+
+
 
 
     # define state and input vector
@@ -127,11 +125,11 @@ def export_quadrotor_ode_model() -> AcadosModel:
         y_cmd,
         theta,
         vtheta,
-        tunnel_n,
-        tunnel_b, 
     )
     inputs = vertcat(df_cmd, dr_cmd, dp_cmd, dy_cmd, dvtheta_cmd)
-
+    droll= params_pitch_rate[0] * pitch + params_pitch_rate[1] * p_cmd
+    dpitch =  params_yaw_rate[0] * yaw + params_yaw_rate[1] * y_cmd
+    dyaw = 10.0 * (f_collective_cmd - f_collective)
     # Define nonlinear system dynamics
     f = vertcat(
         vx,
@@ -143,16 +141,15 @@ def export_quadrotor_ode_model() -> AcadosModel:
         * (cos(roll) * sin(pitch) * sin(yaw) - sin(roll) * cos(yaw)),
         (params_acc[0] * f_collective + params_acc[1]) * cos(roll) * cos(pitch) - GRAVITY,
         params_roll_rate[0] * roll + params_roll_rate[1] * r_cmd,
-        params_pitch_rate[0] * pitch + params_pitch_rate[1] * p_cmd,
-        params_yaw_rate[0] * yaw + params_yaw_rate[1] * y_cmd,
-        10.0 * (f_collective_cmd - f_collective),
+        droll,
+        dpitch,
+        dyaw,
         df_cmd,
         dr_cmd,
         dp_cmd,
         dy_cmd,
         vtheta,
         dvtheta_cmd,
-        MX.zeros(2,1)
     )
 
     # --- MPCC error terms -------------------------------------------------
@@ -166,20 +163,44 @@ def export_quadrotor_ode_model() -> AcadosModel:
 
     ec_sq = cont_err.T @ cont_err  # ‖e_c‖²
     el_sq = lag_err**2  # e_l²
+    # --- Extended MPCC++ Cost --------------------------------------------------
+    Q_omega = MPCC_CFG["Q_OMEGA"]
+    R_vth   = MPCC_CFG["R_VTHETA"]
+    
+    n_vec = vertcat(nx, ny, nz)
+    b_vec = vertcat(bx, by, bz)
 
-    #MPCC++
-
-    # add a small regularization on the inputs and include tunnel soft constraint
+    g_n_pos = n_vec.T @ delta - w_half        #  (p‑c)·n ≤  w/2
+    g_n_neg = -n_vec.T @ delta - w_half
+    g_b_pos = b_vec.T @ delta - h_half        #  (p‑c)·b ≤  h/2
+    g_b_neg = -b_vec.T @ delta - h_half
+    
+    
+    omega_sq = roll**2 + pitch**2 + yaw**2        # ‖ω‖²
+    vtheta_sq = vtheta**2
+    
+    
+    alpha = 100.0
+    bar = MX.log(1 + MX.exp(-alpha*(g_n_pos))) + MX.log(1 + MX.exp(-alpha*(g_n_neg))) \
+        + MX.log(1 + MX.exp(-alpha*(g_b_pos))) + MX.log(1 + MX.exp(-alpha*(g_b_neg)))
+    
+    
     R_reg = 1e-1
     stage_cost = (
         qc * ec_sq
         + ql * el_sq
-        - mu * vtheta
+        + Q_omega * omega_sq          # new rotational penalty
+        + R_vth * vtheta_sq           # quadratic vtheta penalty
+        - mu * vtheta                 # progress reward
         + R_reg * (df_cmd**2 + dr_cmd**2 + dp_cmd**2 + dy_cmd**2 + dvtheta_cmd**2)
+        + MPCC_CFG["BARRIER_WEIGHT"] * bar
     )
-    term_cost  = qc*ec_sq + ql*el_sq                 # Terminal ohne Barrier
+    term_cost  =qc * ec_sq+ ql * el_sq+ Q_omega * omega_sq + R_vth * vtheta_sq
 
 
+
+
+    con_h = vertcat(g_n_pos, g_n_neg, g_b_pos, g_b_neg)
 
     model = AcadosModel()
     model.name = model_name
@@ -190,11 +211,12 @@ def export_quadrotor_ode_model() -> AcadosModel:
     model.cost_expr_ext_cost = stage_cost  # stage cost
     model.cost_expr_ext_cost_e = term_cost  # terminal cost
     model.p = p  # expose parameters to the OCP
+    # model.con_h_expr = con_h      # nonlinear ≤0 constraints
     return model
 
 
 def create_ocp_solver(
-    Tf: float, N: int, verbose: bool = True
+    Tf: float, N: int, verbose: bool = False
 ) -> tuple[AcadosOcpSolver, AcadosOcp]:
     """Creates an acados Optimal Control Problem and Solver."""
     ocp = AcadosOcp()
@@ -222,19 +244,15 @@ def create_ocp_solver(
     ocp.parameter_values = np.zeros(17)
 
     # Set state constraints: collective thrust, Euler commands, and virtual progress speed
-# statt der 17-Einträge-Arrays:
-    ocp.constraints.idxbx = np.array([9, 10, 11, 12, 13, 15, 16, 17])
+    ocp.constraints.idxbx = np.array([9, 10, 11, 12, 13, 15])
 
-    # Jetzt nur noch 8 Werte pro Grenze:
     ocp.constraints.lbx = np.array([
-        0.1,    # f_collective (x[ 9 ])
-        0.1,    # f_collective_cmd (x[10])
-    -1.57,  # r_cmd (x[11])
-    -1.57,  # p_cmd (x[12])
-    -1.57,  # y_cmd (x[13])
-        0.0,   # vtheta (x[15])
-    -MPCC_CFG["TUNNEL_WIDTH"]/2,  # tunnel_n (x[16])
-    -MPCC_CFG["TUNNEL_WIDTH"]/2   # tunnel_b (x[17])
+        0.1,    # f_collective
+        0.1,    # f_collective_cmd
+        -1.57,  # r_cmd
+        -1.57,  # p_cmd
+        -1.57,  # y_cmd
+        0.0,    # vtheta
     ])
     ocp.constraints.ubx = np.array([
         0.55,   # f_collective
@@ -243,21 +261,17 @@ def create_ocp_solver(
         1.0,    # p_cmd
         1.0,    # y_cmd
         MPCC_CFG["DVTHETA_MAX"],  # vtheta
-        MPCC_CFG["TUNNEL_WIDTH"]/2,  # tunnel_n
-        MPCC_CFG["TUNNEL_WIDTH"]/2   # tunnel_b
     ])
-    # Und die Slack-Indizes beziehen sich nun auf die Positionen 6 und 7 in diesem 8-Element-Array:
-    ocp.constraints.idxsbx = np.array([6, 7])
 
-    zl = MPCC_CFG["TUNNEL_SLACK_LINEAR"] * np.ones(2)
-    zu = MPCC_CFG["TUNNEL_SLACK_LINEAR"] * np.ones(2)
-    Zl = MPCC_CFG["TUNNEL_SLACK_QUAD"]   * np.ones(2)
-    Zu = MPCC_CFG["TUNNEL_SLACK_QUAD"]   * np.ones(2)
-
-    ocp.cost.zl = zl
-    ocp.cost.zu = zu
-    ocp.cost.Zl = Zl
-    ocp.cost.Zu = Zu
+    # ---- tunnel constraints via BGH + soft slack -----------------
+    # ocp.constraints.constr_type = "BGH"
+    # ocp.constraints.nh = 4
+    # ocp.constraints.expr_h = model.con_h_expr
+    # ocp.constraints.lh = -1.0e9 * np.ones(4)   # large negative value instead of -inf (JSON safe)
+    # ocp.constraints.uh = np.zeros(4)
+    # ocp.constraints.idxsh = np.array([], dtype=int)   # no soft slack, Barrier only
+    # Explicitly set nh = 0, and ensure no nonlinear constraints are set.
+    ocp.constraints.nh = 0
 
     # Set Input Constraints
     # ocp.constraints.lbu = np.array([-10.0, -10.0, -10.0. -10.0])
@@ -296,11 +310,10 @@ def create_ocp_solver(
     # set prediction horizon
     ocp.solver_options.tf = Tf
 
-    acados_ocp_solver = AcadosOcpSolver(ocp, json_file="lsy_example_mpc.json", verbose=verbose)
-    acados_integrator = AcadosSimSolver(ocp, json_file = "lsy_example_mpc.json", verbose=verbose)
+    acados_ocp_solver = AcadosOcpSolver(ocp, json_file= "lsy_example_mpc.json", verbose=verbose)
 
 
-    return acados_ocp_solver, acados_integrator, ocp
+    return acados_ocp_solver, ocp
 
 
 class MPController(Controller):
@@ -312,9 +325,9 @@ class MPController(Controller):
         Args:
             obs: The initial observation of the environment's state. See the environment's
                 observation space for details.
-            info: Additional environment information from the reset.
+            inf  go: Additional environment information from the reset.
             config: The configuration of the environment.
-        """  # noqa: D205
+        """  
         super().__init__(obs, info, config)
         self.freq = config.env.freq
         self._tick = 0
@@ -324,18 +337,31 @@ class MPController(Controller):
             [
                 [1.0896959, 1.4088244, 0.08456537],
                 [0.8, 1.0, 0.2],
-                [0.55, -0.3, 0.5],
-                [0.2, -1.3, 0.65],
-                [1.1, -0.85, 1.1],
-                [0.2, 0.5, 0.65],
-                [0.0, 1.2, 0.525],
-                [0.0, 1.2, 1.1],
-                [-0.5, 0.0, 1.1],
-                [-0.5, -0.5, 1.1],
-                [-0.5, -2, 1.1],
+                [0.7, 0.1, 0.4],
+                obs["gates_pos"][0],  # gate1
+                [0.2, -0.7, 0.65],
+                [0.5, -1.5, 0.8],
+                obs["gates_pos"][1],  # gate2
+                [1.15, -0.75, 1.0],
+                [0.5, 0.0, 0.8],
+                obs["gates_pos"][2],    # gate3
+                [-0.1, 1.2, 0.56],
+                [-0.3, 1.2, 1.1],
+                [-0.2, 0.4, 1.1],
+                obs["gates_pos"][3],   # gate4
+                [-0.5, -1, 1.11],
+                [-0.5, -2, 1.11]
+
             ]
         )
-        # ------------------------------------------------------------------
+        self._waypoints = waypoints
+        self._gate_to_wp_index = {
+            0: 3,
+            1: 6,
+            2: 9,
+            3: 13
+        }  
+        #-----------------------------------------------------------------
         # Arc‑length parametrisation of the reference path  (no wall‑clock time)
         # ------------------------------------------------------------------
         # 1. Spline in arclength domain s  (units = metres)
@@ -360,8 +386,7 @@ class MPController(Controller):
         self.T_HORIZON = MPCC_CFG["T_HORIZON"]  # time span of the MPC
         self.dt = self.T_HORIZON / self.N
 
-        self.acados_ocp_solver, self.acados_integrator, self.ocp = create_ocp_solver(self.T_HORIZON, self.N)
-    
+        self.acados_ocp_solver, self.ocp = create_ocp_solver(self.T_HORIZON, self.N)
         self.last_f_collective = 0.3
         self.last_rpy_cmd = np.zeros(3)
         self.last_f_cmd = 0.3
@@ -375,28 +400,46 @@ class MPController(Controller):
         self._ref_point = np.zeros(3)
         self.safe_pos = np.zeros(3)  
         self._planned_traj = np.zeros((self.N + 1, 3))
-        self._tunnel_n = 0.0
-        self._tunnel_b = 0.0
+        self._pos_on_path = None  
 
         # Store predicted theta trajectory for reference in next iteration
         self._predicted_theta = np.zeros(self.N + 1)
+        # storage for gate constraint polygons per MPC iteration
+        self._gate_regions_arr: np.ndarray | None = None
         def _pos_on_path(s: float) -> np.ndarray:
             s_wrap = s % self.s_total
             return np.array([self._cs_x(s_wrap),
                             self._cs_y(s_wrap),
                             self._cs_z(s_wrap)])
         self.pos_on_path = _pos_on_path          # <-- expose helper
+
+        # Use MPCC_CFG for tunnel/gate widths
+        self.current_tunnel_width = MPCC_CFG["TUNNEL_WIDTH"]
+        self.target_tunnel_width = MPCC_CFG["TUNNEL_WIDTH"]
+
         # Precompute tunnel geometry at high resolution along full path
         self.vis_s = vis_s  # array of 200 sample arclengths
         self.tunnel_cache = []
         w_nom = MPCC_CFG["TUNNEL_WIDTH"]
-        h_nom =MPCC_CFG["TUNNEL_WIDTH"]
+        h_nom = MPCC_CFG["TUNNEL_WIDTH"]
         for s in vis_s:
             c, n, b, w, h = tunnel_bounds(self.pos_on_path, s, w_nom=w_nom, h_nom=h_nom)
             self.tunnel_cache.append((c, n, b, w, h))
         self._target_gate_pos = obs["gates_pos"][obs["target_gate"]]             # (für Debug/Plot)
         # flag to generate a straight tunnel to the gate once
         self._use_line_tunnel = False
+        # Placeholder for dynamic gate information (position + orientation quaternion)
+        self.gate_pos: np.ndarray | None = None
+        self.gate_quat: np.ndarray | None = None
+        # Gate opening size (full width/height) in metres
+        self.gate_width: float = 0.30   # reduced width of gate opening
+        self.gate_height: float = 0.30  # reduced height of gate opening
+        self.gate_depth: float = 0.3   # thickness along path/tangent (m)
+        self._new_gate = False
+        self._target_gate = 0
+        self._current_gate = obs["gates_pos"][obs["target_gate"]]
+        self._current_gate = np.array([0.0, 0.0, 0.0])  # Placeholder for current gate position
+        self._planning_points = np.zeros((self.N + 1, 3))  # Store the planned trajectory points
 
     def compute_control(
         self, obs: dict[str, NDArray[np.floating]], info: dict | None = None
@@ -414,7 +457,32 @@ class MPController(Controller):
         # Optional debug print:
         # print("Target gate:", target_gate_pos)
         # finish when progress (theta) reaches the end of the spline trajectory
-        
+        self._planning_points = []  # Reset the planning points for each step
+
+        # Smoothly update tunnel width toward target
+        width_diff = MPCC_CFG["TUNNEL_WIDTH"] - MPCC_CFG["GATE_WIDTH"]
+
+        if self._new_gate is False:
+            if np.all(obs["gates_pos"][int(obs["target_gate"])] != self._target_gate_pos):
+                print(f"New gate detected: {int(obs['target_gate'])}")
+                
+                self._new_gate = True
+                self._target_gate_pos = obs["gates_pos"][int(obs["target_gate"])]
+                self.update_trajectorie()
+                self.current_tunnel_width = MPCC_CFG["GATE_WIDTH"]
+        if self._new_gate is True:
+            if self._target_gate != int(obs["target_gate"]):
+                print(f"Target gate changed: {int(obs['target_gate'])}")
+                self._new_gate = False
+                self._target_gate = int(obs["target_gate"])
+                self._target_gate_pos = obs["gates_pos"][int(obs["target_gate"])]
+                self.current_tunnel_width = MPCC_CFG["TUNNEL_WIDTH"]
+
+        print('gate', self._new_gate)
+
+
+
+            
         if False:
             print('Finished')
             self.finished = True
@@ -423,7 +491,18 @@ class MPController(Controller):
         r = R.from_quat(q)
         # Convert to Euler angles in XYZ order
         rpy = r.as_euler("xyz", degrees=False)  # Set degrees=False for radians
+        pos = obs["pos"]
+        # ------------------------------------------------------------
+        # Gate frame logic removed; always use tunnel geometry below.
 
+        # --- project current position onto path to get up‑to‑date arclength s_cur
+        # Use the medium‑resolution path sample self.vis_s (len≈200)
+        traj_points_vis = self.traj_points          # (200,3) cached during init
+        dists_vis = np.linalg.norm(traj_points_vis - pos, axis=1)
+        idx_min_vis = int(np.argmin(dists_vis))
+        s_cur = self.vis_s[idx_min_vis]             # arclength of closest point
+
+        
         xcurrent = np.concatenate(
             (
                 obs["pos"],  # 3
@@ -432,9 +511,9 @@ class MPController(Controller):
                 np.array([self.last_f_collective, self.last_f_cmd]),  # 2
                 self.last_rpy_cmd,  # 3
                 np.array([self.last_theta, self.last_vtheta]),  # 2
-                np.zeros(2),  # 2: tunnel_n, tunnel_b (slack variables)
             )
         )
+
 
         try:
             vtheta_pred = np.zeros(self.N)
@@ -442,140 +521,95 @@ class MPController(Controller):
                 xj = self.acados_ocp_solver.get(j, "x")
                 vtheta_pred[j-1] = float(xj[15])
             theta_pred = np.zeros(self.N + 1)
-            theta_pred[0] = self.last_theta
+            theta_pred[0] = s_cur   # start of prediction = current position on path
             for j in range(self.N):
                 theta_pred[j+1] = theta_pred[j] + vtheta_pred[j] * self.dt
         except Exception:
             # Erster Aufruf: noch keine vorherigen Prädiktionen
             theta_pred = self.last_theta + self.last_vtheta * np.linspace(0.0, self.T_HORIZON, self.N + 1)
+            theta_pred[0] = s_cur
 
         if self._tick % 20 == 0:
             print(f"θ={self.last_theta:6.2f}  vθ={self.last_vtheta:4.2f}")
 
+        # Store predicted theta trajectory so that get_tunnel_regions()
+        # can draw the stage‑wise tunnel rectangles for the next visualization
+        self._predicted_theta = theta_pred.copy()
+        # save also current center for visualization
+        self._tunnel_center_now = self.pos_on_path(s_cur)
 
-        # upon gate change, generate full straight tunnel once
+
+        
+        self.acados_ocp_solver.set(0, "lbx", xcurrent)
+        self.acados_ocp_solver.set(0, "ubx", xcurrent)
+        
+        # Standard tunnel selection for all stages; gate logic removed.
+        for j in range(self.N):
+            s_ref = theta_pred[j]
+            pref = self.pos_on_path(s_ref)
+            self._ref_point = pref
+            pref_next = self.pos_on_path(s_ref + 0.001)
+            tangent = unit(pref_next - pref)
+            idx_vis = min(
+                range(len(self.vis_s)),
+                key=lambda k: abs(self.vis_s[k] - s_ref)
+            )
+            c, n, b, _, _ = self.tunnel_cache[idx_vis]
+            w = self.current_tunnel_width
+            h = self.current_tunnel_width
+            ramp = min(1.0, (self._tick * self.dt) / MPCC_CFG["RAMP_TIME"])
+            mu_val = MPCC_CFG["MU"] * ramp if j < self.N else 0.0
+            qc_val = MPCC_CFG["QC"]
+            ql_val = MPCC_CFG["QL"]
+
+            p_vec = np.concatenate([
+                pref,
+                tangent,
+                [qc_val, ql_val, mu_val],
+                n,
+                b,
+                [w/2, h/2]
+            ])
+            self.acados_ocp_solver.set(j, "p", p_vec)
+            self._planning_points.append(pref)  # Store the planned trajectory points
+
+        # Terminal stage: always use tunnel geometry.
+        c_T, n_T, b_T, _, _ = self.tunnel_cache[idx_vis]
+        w_T = self.current_tunnel_width
+        h_T = self.current_tunnel_width
+        p_terminal = np.concatenate([
+            c_T,
+            tangent,
+            [qc_val, ql_val, mu_val],
+            n_T,
+            b_T,
+            [w_T / 2, h_T / 2]
+        ])
+        self.acados_ocp_solver.set(self.N, "p", p_terminal)
+        self._planning_points.append(c_T)  # Store the terminal point
+
+
+        self.acados_ocp_solver.options_set("qp_warm_start", 2)    # 2 = full
+
+
+        status = self.acados_ocp_solver.solve()
+
+        if status != 0:
+            print(f"[acados] Abbruch mit Status {status}")
+            return np.array([self.last_f_cmd, *self.last_rpy_cmd])
+
+
+        x1 = self.acados_ocp_solver.get(1, "x")
+        cmd = x1[10:14]
+        self.last_theta = x1[14]
+        self.last_vtheta = x1[15]
+  
         planned_traj = np.zeros((self.N + 1, 3))
         for j in range(self.N + 1):
             xj = self.acados_ocp_solver.get(j, "x")
             planned_traj[j] = xj[:3]   # first three state entries: px, py, pz
         self._planned_traj = planned_traj
-
-        for j in range(self.N):
-            s_ref = theta_pred[j]
-            pref = self.pos_on_path(s_ref)
-            self._ref_point = pref  
-            pref_next = self.pos_on_path(s_ref + 0.001)
-            tangent = unit(pref_next - pref)
-
-            idx_vis = min(range(len(self.vis_s)), key=lambda k: abs(self.vis_s[k] - s_ref))
-            c, n, b, w, h = self.tunnel_cache[idx_vis]
-            whalf = w / 2.0
-            hhalf = h / 2.0
-            pos = obs["pos"]
-
-            tunnel_e_val = np.dot(pos - c, n)
-            tunnel_b_val = np.dot(pos - c, b)
-
-            xcurrent[-2] = tunnel_e_val
-            xcurrent[-1] = tunnel_b_val
-            
-            self.acados_ocp_solver.set(0, "lbx", xcurrent)
-            self.acados_ocp_solver.set(0, "ubx", xcurrent)
-
-            qc_val = MPCC_CFG["QC"]         
-            ql_val = MPCC_CFG["QL"]
-            ramp   = min(1.0, (self._tick*self.dt) / MPCC_CFG["RAMP_TIME"])
-            mu_val = MPCC_CFG["MU"] * ramp if j < self.N else 0.0
-
-
-            p_vec = np.concatenate([
-                pref,               # 0-2: reference point (path or tunnel center)
-                tangent,              # 3-5
-                [qc_val, ql_val, mu_val],   # 6-8
-                n,                    # 9-11
-                b,                    # 12-14
-                [whalf, hhalf],       # 15-16
-            ])
-            self.acados_ocp_solver.set(j, "p", p_vec)
-            self.acados_integrator.set("x", xcurrent)
-            ucurrent = self.acados_ocp_solver.get(j, "u")  # shape (nu,)
-            self.acados_integrator.set("u", ucurrent)
-            status = self.acados_integrator.solve()
-
-        p_terminal = np.concatenate([
-            self.pos_on_path(theta_pred[-1]),
-            tangent,
-            [qc_val, ql_val, mu_val],  # qc, ql, mu
-            n, b,
-            [whalf, hhalf],
-        ])
-
-        self.acados_ocp_solver.set(self.N, "p", p_terminal)
-
-        # ---------------- before solver.solve() -----------------
-
-        u_init = np.r_[self.last_f_cmd, self.last_rpy_cmd, 0.0]   # shape (nu,)
-        for j in range(self.N):
-            self.acados_ocp_solver.set(j, "u", u_init)
-
-        self.acados_ocp_solver.options_set("qp_warm_start", 2)    # 2 = full
-
-
-
-        # 2) Override tunnel box constraints for stages 1..N-1 (already set inside loop),
-        #    now also set for terminal stage N:
-
-        # 3) Finally solve
-        status = self.acados_ocp_solver.solve()
-        qp_it = self.acados_ocp_solver.get_stats("qp_iter")[-1]
-        max_res = np.max(self.acados_ocp_solver.get_stats("residuals"))
-
-        if status != 0:                       # 0 = OK
-            print(f"[acados] Abbruch mit Status {status}")
-            return np.array([self.last_f_cmd, *self.last_rpy_cmd])
-
-        lam = self.acados_ocp_solver.get(0, "lam")  # duals of dynamics
-        # print(f"dual_norm={np.linalg.norm(lam):.1e}")
-        qp_stat = self.acados_ocp_solver.get_stats("qp_stat")[-1]   # HPIPM exit flag
-        qp_it   = self.acados_ocp_solver.get_stats("qp_iter")[-1]
-        # print(f"QP flag={qp_stat}  qp_it={qp_it}")
-        res = self.acados_ocp_solver.get_stats("residuals")
-        max_res = np.max(res)
-        # print(f"max_res={max_res:.1e}")
-        # Check convergence
-        if qp_it > 100 or max_res > 1e-4:
-            # print("Warning: QP did not converge within 100 iterations or residual >1e-4")
-            pass
-        # 3b) min h_i der optimalen Stage-0-Lösung
-        x0_sol = self.acados_ocp_solver.get(0, "x")
-        p0_sol = self.acados_ocp_solver.get(0, "p")
-        n_sol  = p0_sol[9:12];  b_sol  = p0_sol[12:15]
-        wh_sol, hh_sol = p0_sol[15], p0_sol[16]
-        pref_sol = p0_sol[0:3]
-        d_sol = x0_sol[0:3] - pref_sol
-        e_n = np.dot(d_sol, n_sol);  e_b = np.dot(d_sol, b_sol)
-        h_vals = [wh_sol - e_n, wh_sol + e_n, hh_sol - e_b, hh_sol + e_b]
-        # print(f"h_min={min(h_vals):+.3f}")
-
-
-
-        # --- debug: print HPIPM residuals for clipping/numerical issues ------
-        residuals = self.acados_ocp_solver.get_stats("residuals")
-        max_res = np.max(residuals)
-        # print(f"HPIPM max_residual: {max_res:.3e}")
-        # (Predicted theta update removed: reference is now static)
-        # retrieve solution afterwards
-        x1 = self.acados_ocp_solver.get(1, "x")
-        w = 1 / self.config.env.freq / self.dt
-        self.last_f_collective = self.last_f_collective * (1 - w) + x1[9] * w
-        self.last_f_cmd = x1[10]
-        self.last_rpy_cmd = x1[11:14]
-
-        cmd = x1[10:14]
-        self.last_theta = x1[14]
-        self.last_vtheta = x1[15]
-        if x1[16] < -MPCC_CFG["TUNNEL_WIDTH"]/2 or x1[17] < -MPCC_CFG["TUNNEL_WIDTH"]/2 or x1[16] > MPCC_CFG["TUNNEL_WIDTH"]/2 or x1[17] > MPCC_CFG["TUNNEL_WIDTH"]/2:
-            print(f"Warning: tunnel_n/b out of bounds: {x1[16]:.3f}, {x1[17]:.3f}")
+        
         return cmd
 
     def step_callback(
@@ -608,7 +642,60 @@ class MPController(Controller):
         """Return the list of 3‑D waypoints (N+1) that the MPC currently plans."""
         return self._planned_traj
     
+    def get_pos_on_path(self) -> NDArray[np.floating]:
+        """Get the position on the reference path for a given arclength s."""
+        return self._pos_on_path
+    
+    def get_tunnel_regions(self) -> np.ndarray:
+        """
+        Returns the currently active position-constraints (rectangles) for every
+        stage of the MPC horizon. Always returns the regular tunnel rectangles
+        along the predicted theta trajectory (shape (N, 4, 3)).
+        """
+        theta_vals = getattr(self, "_predicted_theta", None)
+        if theta_vals is None or len(theta_vals) < self.N:
+            raise ValueError(
+                "Predicted theta trajectory not available. Call compute_control() first."
+            )
+        regions = []
+        w_nom = MPCC_CFG["TUNNEL_WIDTH"]
+        h_nom = MPCC_CFG["TUNNEL_WIDTH"]
+        for j in range(self.N):
+            s_ref = theta_vals[j]
+            c, n, b, w, h = tunnel_bounds(self.pos_on_path, s_ref, w_nom=w_nom, h_nom=h_nom)
+            w_half = w / 2.0
+            h_half = h / 2.0
+            corner0 = c + w_half * n + h_half * b
+            corner1 = c + w_half * n - h_half * b
+            corner2 = c - w_half * n - h_half * b
+            corner3 = c - w_half * n + h_half * b
+            regions.append(np.vstack((corner0, corner1, corner2, corner3)))
+        return np.array(regions)
 
+    def update_trajectorie(self):
+        print(self._target_gate)
+        idx = self._gate_to_wp_index.get(int(self._target_gate))
+        self._waypoints[idx] = self._target_gate_pos
+        seg_lens = np.linalg.norm(np.diff(self._waypoints, axis=0), axis=1)
+        s_grid = np.hstack(([0.0], np.cumsum(seg_lens)))  # shape (K,)
+        self.s_total = float(s_grid[-1])
+
+        cs_x = CubicSpline(s_grid, self._waypoints[:, 0])
+        cs_y = CubicSpline(s_grid, self._waypoints[:, 1])
+        cs_z = CubicSpline(s_grid, self._waypoints[:, 2])
+
+        # Store splines for fast evaluation
+        self._cs_x, self._cs_y, self._cs_z = cs_x, cs_y, cs_z
+        # Keep medium‑resolution points only for visualisation
+        vis_s = np.linspace(0.0, self.s_total, 200, endpoint=False)
+        self.traj_points = np.column_stack((cs_x(vis_s), cs_y(vis_s), cs_z(vis_s)))
+
+    def get_planning_points(self) -> NDArray[np.floating]:
+        """Get the reference points of the trajectory."""
+        return self._planning_points
+
+
+    # get_gate_regions removed: no longer used.
 
 def tunnel_bounds(pos_on_path, s: float,
                 w_nom: float = 0.4, h_nom: float = 0.4):
@@ -624,7 +711,4 @@ def unit(v):
     n = np.linalg.norm(v)
     return v / n if n > 1e-6 else np.array([1.0, 0.0, 0.0])
 
-# helper: position on the reference path for a given arclength s
-def pos_on_path(s: float) -> np.ndarray:
-    s_wrap = s % self.s_total
-    return np.array([self._cs_x(s_wrap), self._cs_y(s_wrap), self._cs_z(s_wrap)])
+
