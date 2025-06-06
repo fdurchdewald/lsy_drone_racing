@@ -44,9 +44,9 @@ MPCC_CFG = dict(
     QC=10,
     QL=80,
     MU=10,
-    DVTHETA_MAX=1.5,
+    DVTHETA_MAX=1.9,
     N=20,
-    T_HORIZON=1.05,
+    T_HORIZON=1.5,
     RAMP_TIME=1.8,
     BARRIER_WEIGHT = 10, 
     TUNNEL_WIDTH = 0.5,  # nominal tunnel width
@@ -54,7 +54,7 @@ MPCC_CFG = dict(
     Q_OMEGA = 2,          # weight for rotational rates (roll, pitch, yaw)
     R_VTHETA = 1.0,        # quadratic penalty on vtheta
     IN_GATE_RAMP_TIME = 0.4,
-    OUT_GATE_RAMP_TIME = 0.4
+    OUT_GATE_RAMP_TIME = 3
 )
 
 
@@ -380,7 +380,10 @@ class MPController(Controller):
                 [-0.3, 1.2, 1.0],
                 [-0.4, 0.4, 1.1],
                 obs["gates_pos"][3],   # gate4
-                [-0.5, -2, 1.11]
+                [-0.5, -2, 1.11],
+                [-0.5, -6, 1.11],
+
+
 
             ]
         )
