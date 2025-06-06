@@ -44,16 +44,16 @@ MPCC_CFG = dict(
     QC=10,
     QL=80,
     MU=10,
-    DVTHETA_MAX=2,
+    DVTHETA_MAX=1.5,
     N=20,
     T_HORIZON=1.05,
     RAMP_TIME=1.8,
     BARRIER_WEIGHT = 10, 
-    TUNNEL_WIDTH = 0.45,  # nominal tunnel width
-    TUNNEL_WIDTH_GATE = 0.25,  # nominal tunnel height
+    TUNNEL_WIDTH = 0.5,  # nominal tunnel width
+    TUNNEL_WIDTH_GATE = 0.2,  # nominal tunnel height
     Q_OMEGA = 2,          # weight for rotational rates (roll, pitch, yaw)
     R_VTHETA = 1.0,        # quadratic penalty on vtheta
-    IN_GATE_RAMP_TIME = 0.3,
+    IN_GATE_RAMP_TIME = 0.4,
     OUT_GATE_RAMP_TIME = 0.4
 )
 
@@ -326,9 +326,9 @@ def create_ocp_solver(
     ocp.solver_options.qp_solver_warm_start = 1
     ocp.solver_options.nlp_solver_ext_qp_res = 1
 
-    ocp.solver_options.nlp_solver_max_iter = 50
+    ocp.solver_options.nlp_solver_max_iter = 1000
     ocp.solver_options.qp_solver_warm_start = 0
-    ocp.solver_options.qp_solver_iter_max = 50
+    ocp.solver_options.qp_solver_iter_max = 1000
 
     ocp.solver_options.regularize_method  = "CONVEXIFY"
     ocp.solver_options.globalization_line_search_use_sufficient_descent = 1
