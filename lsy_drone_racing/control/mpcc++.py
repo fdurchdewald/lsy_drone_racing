@@ -203,12 +203,10 @@ def export_quadrotor_ode_model() -> AcadosModel:
         + R_reg * (df_cmd**2 + dr_cmd**2 + dp_cmd**2 + dy_cmd**2 + dvtheta_cmd**2)
         + w_bar * bar
     )
-    term_cost  = Q_omega * omega_sq + R_vth * vtheta_sq
 
 
 
 
-    con_h = vertcat(g_n_pos, g_n_neg, g_b_pos, g_b_neg)
 
     model = AcadosModel()
     model.name = model_name
@@ -217,7 +215,6 @@ def export_quadrotor_ode_model() -> AcadosModel:
     model.x = states
     model.u = inputs
     model.cost_expr_ext_cost = stage_cost  # stage cost
-    model.cost_expr_ext_cost_e = term_cost  # terminal cost
     model.p = p  # expose parameters to the OCP
     model.con_h_expr = None #con_h      # nonlinear ≤0 constraints
     return model
@@ -244,7 +241,6 @@ def create_ocp_solver(
 
     # Cost Type
     ocp.cost.cost_type = "EXTERNAL"
-    ocp.cost.cost_type_e = "EXTERNAL"
 
     # Tell acados how many parameters each stage has
     ocp.dims.np = 18
@@ -639,20 +635,6 @@ class MPController(Controller):
             self._planning_points.append(pref)  # Store the planned trajectory points
 
         print('BW:', bw_val)
-        # Terminal stage: always use tunnel geometry.
-        c_T, n_T, b_T, w_T, h_T = self.pos_on_path(theta_pred[-1]), n, b, w, h
-        p_terminal = np.concatenate([
-            c_T,
-            tangent,
-            [qc_val, ql_val, mu_val],
-            n_T,
-            b_T,
-            [w_T / 2, h_T / 2, bw_val]
-        ])
-        self.acados_ocp_solver.set(self.N, "p", p_terminal)
-        self._planning_points.append(c_T)  # Store the terminal point
-
-
         self.acados_ocp_solver.options_set("qp_warm_start", 2)    # 2 = full
 
         tic = time.perf_counter()
@@ -834,5 +816,3 @@ def tunnel_bounds(pos_on_path, s: float,
 def unit(v):
     n = np.linalg.norm(v)
     return v / n if n > 1e-6 else np.array([1.0, 0.0, 0.0])
-
-
