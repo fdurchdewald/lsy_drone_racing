@@ -46,7 +46,7 @@ MPCC_CFG = dict(
     MU=10,
     DVTHETA_MAX=1.9,
     N=20,
-    T_HORIZON=1.5,
+    T_HORIZON=1.2,
     RAMP_TIME=1.8,
     BARRIER_WEIGHT = 10, 
     TUNNEL_WIDTH = 0.5,  # nominal tunnel width
@@ -184,8 +184,7 @@ def export_quadrotor_ode_model() -> AcadosModel:
     g_b_neg = -b_vec.T @ delta - h_half
     
     
-    omega_sq = roll**2 + pitch**2 + yaw**2        # ‖ω‖²
-    vtheta_sq = vtheta**2
+    omega_sq = roll**2 + pitch**2 + yaw**2        
     
     
     alpha = 100.0
@@ -197,10 +196,10 @@ def export_quadrotor_ode_model() -> AcadosModel:
     stage_cost = (
         qc * ec_sq
         + ql * el_sq
-        + Q_omega * omega_sq          # new rotational penalty
-        + R_vth * vtheta_sq           # quadratic vtheta penalty
-        - mu * vtheta                 # progress reward
-        + R_reg * (df_cmd**2 + dr_cmd**2 + dp_cmd**2 + dy_cmd**2 + dvtheta_cmd**2)
+        + Q_omega * omega_sq          
+        + R_vth * dvtheta_cmd**2           
+        - mu * vtheta                
+        + R_reg * (df_cmd**2 + dr_cmd**2 + dp_cmd**2 + dy_cmd**2)
         + w_bar * bar
     )
 
