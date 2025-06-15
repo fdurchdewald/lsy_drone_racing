@@ -42,18 +42,20 @@ log = get_logger()
 
 MPCC_CFG = dict(
     QC=10,
+    QC_GATE=50,
     QL=80,
     MU=10,
     DVTHETA_MAX=1.9,
-    N=20,
-    T_HORIZON=1.2,
+    N=15,
+    T_HORIZON=0.8,
     RAMP_TIME=1.8,
     BARRIER_WEIGHT = 10, 
     TUNNEL_WIDTH = 0.5,  # nominal tunnel width
-    TUNNEL_WIDTH_GATE = 0.2,  # nominal tunnel height
+    TUNNEL_WIDTH_GATE = 0.1,  # nominal tunnel height
+    NARROW_DIST = 1,      # distance (m) at which tunnel starts to narrow
     Q_OMEGA = 2,          # weight for rotational rates (roll, pitch, yaw)
     R_VTHETA = 1.0,        # quadratic penalty on vtheta
-    IN_GATE_RAMP_TIME = 0.4,
+    IN_GATE_RAMP_TIME = 0.1,
     OUT_GATE_RAMP_TIME = 3
 )
 
@@ -577,11 +579,29 @@ class MPController(Controller):
             pref_next = self.pos_on_path(s_ref + 0.001)
             tangent = unit(pref_next - pref)
 
+            # Dynamically shrink tunnel as the drone approaches the target gate
+            dist_gate = np.linalg.norm(pref - self._target_gate_pos)
+
+            # Base (far) and minimum (at‑gate) tunnel sizes
+            w_far   = MPCC_CFG["TUNNEL_WIDTH"]
+            h_far   = MPCC_CFG["TUNNEL_WIDTH"]
+            w_gate  = MPCC_CFG["TUNNEL_WIDTH_GATE"]
+            h_gate  = MPCC_CFG["TUNNEL_WIDTH_GATE"]
+
+            if dist_gate < MPCC_CFG["NARROW_DIST"]:
+                ratio   = dist_gate / MPCC_CFG["NARROW_DIST"]      # 1 → far edge, 0 → at gate
+                w_stage = ratio * w_far + (1.0 - ratio) * w_gate
+                h_stage = ratio * h_far + (1.0 - ratio) * h_gate
+            else:
+                w_stage = w_far
+                h_stage = h_far
+
+            # Compute tunnel orientation with the stage‑specific width/height
             c, n, b, w, h = tunnel_bounds(
                 self.pos_on_path,
                 s_ref,
-                w_nom=self.w_nom,
-                h_nom=self.h_nom
+                w_nom=w_stage,
+                h_nom=h_stage
             )
 
             self._stage_wh.append((w, h))
@@ -602,12 +622,13 @@ class MPController(Controller):
                 ql_val = MPCC_CFG["QL"]
 
             if self._new_gate is True or self._target_gate != 0:
-                mu_val  = MPCC_CFG["MU"] 
-                qc_val  = MPCC_CFG["QC"]    
+                mu_val  = MPCC_CFG["MU"]
+                if self._new_gate is False: 
+                    qc_val  = MPCC_CFG["QC"]    
+                else: 
+                    qc_val  = MPCC_CFG["QC_GATE"]
                 ql_val  = MPCC_CFG["QL"]
                 mu_val = MPCC_CFG["MU"] if j < self.N else 0.0
-                qc_val = MPCC_CFG["QC"]
-                ql_val = MPCC_CFG["QL"]
 
                 if self._new_gate is True:
                     self._update_tick_post_gate = True
@@ -621,7 +642,7 @@ class MPController(Controller):
                     bw_val  = MPCC_CFG["BARRIER_WEIGHT"] * ramp**2
                     self.w_nom = MPCC_CFG["TUNNEL_WIDTH"]
                     self.h_nom = MPCC_CFG["TUNNEL_WIDTH"]
-            
+            print(qc_val)
             p_vec = np.concatenate([
                 pref,
                 tangent,
