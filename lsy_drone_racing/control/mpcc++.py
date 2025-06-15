@@ -28,35 +28,23 @@ if TYPE_CHECKING:
 log = get_logger()
 
 
-# MPCC_CFG = dict(
-#     QC=2,
-#     QL=8,
-#     MU=0.000000000000000001,
-#     DVTHETA_MAX=0.4,
-#     N=15,
-#     T_HORIZON=1.5,
-#     RAMP_TIME=2.0,
-#     BARRIER_WEIGHT = 10,          # tunnel slack weight
-#     OBSTACLE_WEIGHT = 10000         # obstacle slack weight
-# )
-
 MPCC_CFG = dict(
     QC=10,
     QC_GATE=50,
-    QL=80,
+    QL=40,
     MU=10,
-    DVTHETA_MAX=1.9,
+    DVTHETA_MAX=1.7,
     N=15,
     T_HORIZON=0.8,
     RAMP_TIME=1.8,
     BARRIER_WEIGHT = 10, 
     TUNNEL_WIDTH = 0.5,  # nominal tunnel width
     TUNNEL_WIDTH_GATE = 0.1,  # nominal tunnel height
-    NARROW_DIST = 1,      # distance (m) at which tunnel starts to narrow
+    NARROW_DIST = 0.7,      # distance (m) at which tunnel starts to narrow
     Q_OMEGA = 2,          # weight for rotational rates (roll, pitch, yaw)
     R_VTHETA = 1.0,        # quadratic penalty on vtheta
-    IN_GATE_RAMP_TIME = 0.1,
-    OUT_GATE_RAMP_TIME = 3
+    IN_GATE_RAMP_TIME = 0.3,
+    OUT_GATE_RAMP_TIME = 0.5
 )
 
 
@@ -493,13 +481,13 @@ class MPController(Controller):
 
         if self._new_gate is False:
             if np.all(obs["gates_pos"][int(obs["target_gate"])] != self._target_gate_pos):
-                print(f"New gate detected: {int(obs['target_gate'])}")
+                # print(f"New gate detected: {int(obs['target_gate'])}")
                 self._new_gate = True
                 self._target_gate_pos = obs["gates_pos"][int(obs["target_gate"])]
                 self.update_trajectorie()
         if self._new_gate is True:
             if self._target_gate != int(obs["target_gate"]):
-                print(f"Target gate changed: {int(obs['target_gate'])}")
+                # print(f"Target gate changed: {int(obs['target_gate'])}")
                 self._new_gate = False
                 self._target_gate = int(obs["target_gate"])
                 self._target_gate_pos = obs["gates_pos"][int(obs["target_gate"])]
@@ -623,10 +611,6 @@ class MPController(Controller):
 
             if self._new_gate is True or self._target_gate != 0:
                 mu_val  = MPCC_CFG["MU"]
-                if self._new_gate is False: 
-                    qc_val  = MPCC_CFG["QC"]    
-                else: 
-                    qc_val  = MPCC_CFG["QC_GATE"]
                 ql_val  = MPCC_CFG["QL"]
                 mu_val = MPCC_CFG["MU"] if j < self.N else 0.0
 
@@ -634,15 +618,19 @@ class MPController(Controller):
                     self._update_tick_post_gate = True
                     ramp = min(1.0, (self._tick-self._save_tick_pre_gate) * self.dt / MPCC_CFG["IN_GATE_RAMP_TIME"])
                     bw_val  = MPCC_CFG["BARRIER_WEIGHT"] * ramp**2   
+                    # Interpolate QC from its normal value to the gate‑specific value
+                    qc_val = (1.0 - ramp) * MPCC_CFG["QC"] + ramp * MPCC_CFG["QC_GATE"]
                     self.w_nom = MPCC_CFG["TUNNEL_WIDTH_GATE"]
                     self.h_nom = MPCC_CFG["TUNNEL_WIDTH_GATE"]
                 else:
                     self._update_tick_pre_gate = True
                     ramp = min(1.0, (self._tick-self._save_tick_post_gate) * self.dt / MPCC_CFG["OUT_GATE_RAMP_TIME"])
                     bw_val  = MPCC_CFG["BARRIER_WEIGHT"] * ramp**2
+                    # Interpolate QC back to the normal value
+                    qc_val = (1.0 - ramp) * MPCC_CFG["QC_GATE"] + ramp * MPCC_CFG["QC"]
                     self.w_nom = MPCC_CFG["TUNNEL_WIDTH"]
                     self.h_nom = MPCC_CFG["TUNNEL_WIDTH"]
-            print(qc_val)
+           # print(qc_val)
             p_vec = np.concatenate([
                 pref,
                 tangent,
@@ -654,7 +642,7 @@ class MPController(Controller):
             self.acados_ocp_solver.set(j, "p", p_vec)
             self._planning_points.append(pref)  # Store the planned trajectory points
 
-        print('BW:', bw_val)
+        # print('BW:', bw_val)
         self.acados_ocp_solver.options_set("qp_warm_start", 2)    # 2 = full
 
         tic = time.perf_counter()
