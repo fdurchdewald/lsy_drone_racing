@@ -363,8 +363,8 @@ class MPController(Controller):
         # Same waypoints as in the trajectory controller. Determined by trial and error.
         waypoints = np.array(
             [
-                [1.0896959, 1.4088244, 0.08456537],
-                [0.95, 1.0, 0.2],
+                [1.0896959, 1.4088244, MPCC_CFG["TUNNEL_WIDTH"] / 2],
+                [0.95, 1.0, 0.3],
                 [0.8, 0.1, 0.4],
                 obs["gates_pos"][0],  # gate1
                 [0.35, -0.8, 0.65],
