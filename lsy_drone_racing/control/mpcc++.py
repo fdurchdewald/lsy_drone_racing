@@ -39,8 +39,9 @@ MPCC_CFG = dict(
     RAMP_TIME=1.8,
     BARRIER_WEIGHT = 10, 
     TUNNEL_WIDTH = 0.5,  # nominal tunnel width
-    TUNNEL_WIDTH_GATE = 0.1,  # nominal tunnel height
+    TUNNEL_WIDTH_GATE = 0.15,  # nominal tunnel height
     NARROW_DIST = 0.7,      # distance (m) at which tunnel starts to narrow
+    GATE_FLAT_DIST = 0.2,  # distance (m) from gate at which tunnel width remains at gate size
     Q_OMEGA = 2,          # weight for rotational rates (roll, pitch, yaw)
     R_VTHETA = 1.0,        # quadratic penalty on vtheta
     IN_GATE_RAMP_TIME = 0.3,
@@ -576,13 +577,21 @@ class MPController(Controller):
             w_gate  = MPCC_CFG["TUNNEL_WIDTH_GATE"]
             h_gate  = MPCC_CFG["TUNNEL_WIDTH_GATE"]
 
-            if dist_gate < MPCC_CFG["NARROW_DIST"]:
-                ratio   = dist_gate / MPCC_CFG["NARROW_DIST"]      # 1 → far edge, 0 → at gate
+            flat_dist = MPCC_CFG["GATE_FLAT_DIST"]
+            narrow_dist = MPCC_CFG["NARROW_DIST"]
+            if dist_gate > narrow_dist:
+                # far from gate: full tunnel width
+                w_stage = w_far
+                h_stage = h_far
+            elif dist_gate > flat_dist:
+                # narrowing region: interpolate between wide and gate widths
+                ratio = (dist_gate - flat_dist) / (narrow_dist - flat_dist)
                 w_stage = ratio * w_far + (1.0 - ratio) * w_gate
                 h_stage = ratio * h_far + (1.0 - ratio) * h_gate
             else:
-                w_stage = w_far
-                h_stage = h_far
+                # within flat region near the gate: constant gate width
+                w_stage = w_gate
+                h_stage = h_gate
 
             # Compute tunnel orientation with the stage‑specific width/height
             c, n, b, w, h = tunnel_bounds(
@@ -817,8 +826,10 @@ def tunnel_bounds(pos_on_path, s: float,
     c      = pos_on_path(s)
     c_next = pos_on_path(s + 0.01)
     t      = c_next - c;  t /= np.linalg.norm(t) + 1e-9
-    n      = np.array([-t[1], t[0], 0.0]); n /= np.linalg.norm(n) + 1e-9
-    b      = np.cross(t, n);               b /= np.linalg.norm(b) + 1e-9
+    n      = np.array([-t[1], t[0], 0.0])
+    n /= np.linalg.norm(n) + 1e-9
+    b      = np.cross(t, n)               
+    b /= np.linalg.norm(b) + 1e-9
     return c, n, b, w_nom, h_nom
 
 def unit(v):
