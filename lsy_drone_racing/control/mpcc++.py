@@ -33,9 +33,9 @@ MPCC_CFG = dict(
     QC_GATE=50,
     QL=40,
     MU=10,
-    DVTHETA_MAX=1.7,
+    DVTHETA_MAX=1.3,
     N=15,
-    T_HORIZON=0.8,
+    T_HORIZON=0.4,
     RAMP_TIME=1.8,
     BARRIER_WEIGHT = 10, 
     TUNNEL_WIDTH = 0.5,  # nominal tunnel width
@@ -45,9 +45,11 @@ MPCC_CFG = dict(
     Q_OMEGA = 2,          # weight for rotational rates (roll, pitch, yaw)
     R_VTHETA = 1.0,        # quadratic penalty on vtheta
     IN_GATE_RAMP_TIME = 0.3,
-    OUT_GATE_RAMP_TIME = 0.5
+    OUT_GATE_RAMP_TIME = 0.5,
+    OBS_MARGIN       = 0.05,   # [m] keep at least this clearance to a post
+    OBS_NARROW_DIST  = 0.5,    # start left/right shrinking ≤ this [m] ahead
+    OBS_FLAT_DIST    = 0.25  # keep min width inside this distance
 )
-
 
 
 def export_quadrotor_ode_model() -> AcadosModel:
@@ -381,6 +383,13 @@ class MPController(Controller):
             2: 9,
             3: 13
         }  
+        # ---------- obstacle bookkeeping ----------
+        # first state we ever see -> nominal positions
+        self._obs_nominal  = np.array(obs["obstacles_pos"])       # (4,3)
+        # will hold last fully–revealed positions (updated online)
+        self._obs_current  = np.array(obs["obstacles_pos"])       # (4,3)
+
+
         #-----------------------------------------------------------------
         # Arc‑length parametrisation of the reference path  (no wall‑clock time)
         # ------------------------------------------------------------------
@@ -457,6 +466,13 @@ class MPController(Controller):
         self._current_gate = np.array([0.0, 0.0, 0.0])  # Placeholder for current gate position
         self._planning_points = np.zeros((self.N + 1, 3))  # Store the planned trajectory points
 
+        self._obstacles: list[np.ndarray] = []   # start empty, fill in compute_control()
+        self._obs_seen_radius = 0.6              # [m] detection range of the sim
+
+
+    
+
+
     def compute_control(
         self, obs: dict[str, NDArray[np.floating]], info: dict | None = None
     ) -> NDArray[np.floating]:
@@ -477,6 +493,8 @@ class MPController(Controller):
         # reset per‑stage tunnel sizes (w, h) so get_tunnel_regions() can use them later
         self._stage_wh: list[tuple[float, float]] = []
 
+        self._stage_centres: list[np.ndarray] = [] 
+
         if self._tick == 0:             # nur am allerersten Aufruf
             self._dump_initial_state(obs)
 
@@ -492,6 +510,8 @@ class MPController(Controller):
                 self._new_gate = False
                 self._target_gate = int(obs["target_gate"])
                 self._target_gate_pos = obs["gates_pos"][int(obs["target_gate"])]
+        
+        
 
         if self._update_tick_pre_gate is True:
             self._save_tick_pre_gate = self._tick
@@ -499,6 +519,22 @@ class MPController(Controller):
         if self._update_tick_post_gate is True:
             self._save_tick_post_gate = self._tick
             self._update_tick_post_gate = False
+
+        # ---------- update revealed-obstacle positions ----------
+        active_obs = []
+        for k in range(len(obs["obstacles_pos"])):          # always 4 in this track
+            if self._obs_revealed(k, obs):
+                if not np.allclose(self._obs_current[k], obs["obstacles_pos"][k]):
+                    # first time we see the randomised position – announce it
+                    print(f"[tick {self._tick:05d}] Obstacle {k} revealed at "
+                        f"{_pretty_vec(obs['obstacles_pos'][k])}")
+                self._obs_current[k] = obs["obstacles_pos"][k]
+
+                
+                active_obs.append(self._obs_current[k])
+
+        active_obs = np.asarray(active_obs)    # shape (M,3) where M ≤ 4
+
 
 
         if False:
@@ -593,15 +629,35 @@ class MPController(Controller):
                 w_stage = w_gate
                 h_stage = h_gate
 
-            # Compute tunnel orientation with the stage‑specific width/height
-            c, n, b, w, h = tunnel_bounds(
-                self.pos_on_path,
-                s_ref,
-                w_nom=w_stage,
-                h_nom=h_stage
-            )
+            # (1) nominal orientation vectors
+            c_nom, n_vec, b_vec, _, _ = tunnel_bounds(
+                    self.pos_on_path, s_ref,
+                    w_nom=w_stage, h_nom=h_stage)
 
-            self._stage_wh.append((w, h))
+            # (2) laterally shrink the side that contains an *already revealed* obstacle
+            c_shift, w_eff = shrink_side_for_obstacles(
+                    pref, n_vec, w_stage, active_obs, MPCC_CFG["OBS_MARGIN"])
+            
+            if np.linalg.norm(c_shift - pref) > 1e-4:     # tunnel got narrower
+                # find the nearest obstacle that lies inside the current nominal tunnel
+                if active_obs.size:
+                    idx = np.argmin(np.linalg.norm(active_obs - pref, axis=1))
+                    obs_pos = active_obs[idx]
+                else:
+                    obs_pos = np.nan*np.ones(3)
+                print(_dbg_obstacle_msg(self._tick, j, obs_pos,
+                                        pref, c_shift, w_stage, w_eff))
+
+            h_eff = h_stage                     # we leave height unchanged
+
+            # remember per-stage size for visual-debugger
+            self._stage_centres.append(c_shift) 
+            self._stage_wh.append((w_eff, h_eff))
+
+            # remember orientation vectors used in the solver
+            if not hasattr(self, "_stage_nb"):
+                self._stage_nb = []                    # create once
+            self._stage_nb.append((n_vec.copy(), b_vec.copy()))
 
 
             if self._target_gate == 0 and self._new_gate is False:
@@ -640,17 +696,17 @@ class MPController(Controller):
                     self.w_nom = MPCC_CFG["TUNNEL_WIDTH"]
                     self.h_nom = MPCC_CFG["TUNNEL_WIDTH"]
            # print(qc_val)
+            # (3) assemble parameter vector for acados
             p_vec = np.concatenate([
-                pref,
+                c_shift,                        # shifted centre
                 tangent,
                 [qc_val, ql_val, mu_val],
-                n,
-                b,
-                [w/2, h/2, bw_val]
+                n_vec,
+                b_vec,
+                [w_eff/2, h_eff/2, bw_val],
             ])
             self.acados_ocp_solver.set(j, "p", p_vec)
-            self._planning_points.append(pref)  # Store the planned trajectory points
-
+            self._planning_points.append(c_shift)   # optional: store shifted centre
         # print('BW:', bw_val)
         self.acados_ocp_solver.options_set("qp_warm_start", 2)    # 2 = full
 
@@ -713,36 +769,51 @@ class MPController(Controller):
     
     def get_tunnel_regions(self) -> np.ndarray:
         """
-        Returns the currently active position-constraints (rectangles) for every
-        stage of the MPC horizon. Always returns the regular tunnel rectangles
-        along the predicted theta trajectory (shape (N, 4, 3)).
+        Return the rectangles that were actually used as position‐constraints
+        in the *last* MPC call.  Shape: (N, 4, 3).
         """
         theta_vals = getattr(self, "_predicted_theta", None)
         if theta_vals is None or len(theta_vals) < self.N:
             raise ValueError(
                 "Predicted theta trajectory not available. Call compute_control() first."
             )
-        regions = []
+
+        regions: list[np.ndarray] = []
         for j in range(self.N):
-            s_ref = theta_vals[j]
-            # orientation vectors always freshly recomputed
-            c, n, b, _, _ = tunnel_bounds(
-                self.pos_on_path, s_ref,
-                w_nom=self.w_nom, h_nom=self.h_nom
-            )
-            # width/height: take the values actually used during compute_control
+            # ---------- centre ----------
+            if hasattr(self, "_stage_centres") and j < len(self._stage_centres):
+                c = self._stage_centres[j]          # shifted centre used in solver
+            else:
+                c = self.pos_on_path(theta_vals[j]) # fallback (shouldn’t happen)
+
+            # ---------- orientation (n, b) ----------
+            if hasattr(self, "_stage_nb") and j < len(self._stage_nb):
+                n_vec, b_vec = self._stage_nb[j]    # stored during compute_control
+            else:
+                # fallback: recompute from path tangent
+                t_vec = unit(self.pos_on_path(theta_vals[j] + 0.01)
+                             - self.pos_on_path(theta_vals[j]))
+                n_vec = np.array([-t_vec[1], t_vec[0], 0.0])
+                n_vec /= np.linalg.norm(n_vec) + 1e-9
+                b_vec = np.cross(t_vec, n_vec)
+                b_vec /= np.linalg.norm(b_vec) + 1e-9
+
+            # ---------- size ----------
             if hasattr(self, "_stage_wh") and j < len(self._stage_wh):
                 w, h = self._stage_wh[j]
             else:
                 w, h = self.w_nom, self.h_nom
-            w_half = w / 2.0
-            h_half = h / 2.0
-            corner0 = c + w_half * n + h_half * b
-            corner1 = c + w_half * n - h_half * b
-            corner2 = c - w_half * n - h_half * b
-            corner3 = c - w_half * n + h_half * b
+            w_half, h_half = w / 2.0, h / 2.0
+
+            # ---------- rectangle corners ----------
+            corner0 = c + w_half * n_vec + h_half * b_vec
+            corner1 = c + w_half * n_vec - h_half * b_vec
+            corner2 = c - w_half * n_vec - h_half * b_vec
+            corner3 = c - w_half * n_vec + h_half * b_vec
             regions.append(np.vstack((corner0, corner1, corner2, corner3)))
+
         return np.array(regions)
+
 
     # def get_waypoints(self) -> NDArray[np.floating]:
     #     """Get the waypoints of the trajectory."""
@@ -816,6 +887,11 @@ class MPController(Controller):
         vis_s = np.linspace(0.0, self.s_total, 200, endpoint=False)
         self.traj_points = np.column_stack((cs_x(vis_s), cs_y(vis_s), cs_z(vis_s)))
 
+    def _obs_revealed(self, idx, obs_now) -> bool:
+        """True once the sim has published the randomised position for post `idx`."""
+        return np.linalg.norm(obs_now["obstacles_pos"][idx] - self._obs_nominal[idx]) > 1e-3
+
+
 
 
     # get_gate_regions removed: no longer used.
@@ -831,6 +907,57 @@ def tunnel_bounds(pos_on_path, s: float,
     b      = np.cross(t, n)               
     b /= np.linalg.norm(b) + 1e-9
     return c, n, b, w_nom, h_nom
+
+def shrink_side_for_obstacles(pref: np.ndarray, n_vec: np.ndarray,
+                              w_nom: float,              # ← keep this unchanged
+                              obstacles: np.ndarray,
+                              margin: float = 0.05,
+                              max_shift: float | None = None
+                              ) -> tuple[np.ndarray, float]:
+    """
+    Move the tunnel centre sideways so that every obstacle in `obstacles`
+    is at least `margin` away **inside** the nominal full width `w_nom`.
+    Returns
+        c_shifted : new centre (3,)
+        w_nom     : unchanged full width (passed through for convenience)
+    """
+    if obstacles.size == 0:
+        return pref, w_nom
+
+    w_half = w_nom / 2.0
+    shift = 0.0
+    for p in obstacles:
+        d = float(n_vec @ (p - pref))           # signed lateral offset
+        if abs(d) < w_half:                     # obstacle inside tunnel slab
+            free = abs(d) - margin
+            if free < 0.0:
+                free = 0.0
+            if d > 0:                           # post on +n side  → shrink right
+                needed_shift = w_half - free
+                shift -= needed_shift
+            else:                               # post on -n side  → shrink left
+                needed_shift = w_half - free
+                shift += needed_shift
+
+
+    # optional safety clamp
+    if max_shift is not None:
+        shift = np.clip(shift, -max_shift, max_shift)
+
+    return pref + shift * n_vec, w_nom
+
+
+
+#debug:
+def _dbg_obstacle_msg(tick, stage, obs_pos, pref, c_shift, w_old, w_new):
+    side = "right" if (obs_pos - pref) @ np.array([-pref[1], pref[0], 0.0]) > 0 else "left"
+    return (f"[tick {tick:05d} | j={stage:02d}] "
+            f"Shrink {side:<5} → w {w_old:4.2f}→{w_new:4.2f}  "
+            f"shift {np.linalg.norm(c_shift-pref):4.2f}  "
+            f"obs {_pretty_vec(obs_pos)}")
+
+def _pretty_vec(v):
+    return f"[{v[0]: .2f}, {v[1]: .2f}, {v[2]: .2f}]"
 
 def unit(v):
     n = np.linalg.norm(v)
