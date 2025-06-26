@@ -75,8 +75,7 @@ def export_quadrotor_ode_model() -> AcadosModel:
     model.f_impl_expr = None
     model.x = states
     model.u = inputs
-    model.con_h_expr = vertcat(dist_box)
-    model.p = vertcat(box_min, box_max)
+
     return model
 
 
@@ -89,9 +88,7 @@ def create_ocp_solver(
     # set model
     model = export_quadrotor_ode_model()
     ocp.model = model
-    ocp.parameter_values = np.zeros(6)
-    ocp.model.con_h_expr = model.con_h_expr
-    ocp.model.p = model.p   
+
     # Get Dimensions
     nx = model.x.rows()
     nu = model.u.rows()
@@ -188,11 +185,6 @@ def create_ocp_solver(
 
     return acados_ocp_solver, ocp
 
-def distance_to_box(px, py, pz, box_min, box_max):
-    dx = np.maximum(box_min[0] - px, 0, px - box_max[0])
-    dy = np.maximum(box_min[1] - py, 0, py - box_max[1])
-    dz = np.maximum(box_min[2] - pz, 0, pz - box_max[2])
-    return np.sqrt(dx**2 + dy**2 + dz**2)
 
 class AttitudeMPC(Controller):
     """Example of a MPC using the collective thrust and attitude interface."""
@@ -237,6 +229,8 @@ class AttitudeMPC(Controller):
         x_des = cs_x(ts)
         y_des = cs_y(ts)
         z_des = cs_z(ts)
+        self.traj_points = np.column_stack((cs_x(ts), cs_y(ts), cs_z(ts)))
+
 
         x_des = np.concatenate((x_des, [x_des[-1]] * self._N))
         y_des = np.concatenate((y_des, [y_des[-1]] * self._N))

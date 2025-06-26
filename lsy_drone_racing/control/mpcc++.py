@@ -33,19 +33,22 @@ MPCC_CFG = dict(
     QC_GATE=50,
     QL=40,
     MU=10,
-    DVTHETA_MAX=1.7,
-    N=15,
-    T_HORIZON=0.8,
+    DVTHETA_MAX=1.8,
+    N=20,
+    T_HORIZON=1.0,
     RAMP_TIME=1.8,
     BARRIER_WEIGHT = 10, 
-    TUNNEL_WIDTH = 0.5,  # nominal tunnel width
+    TUNNEL_WIDTH = 0.4,  # nominal tunnel width
     TUNNEL_WIDTH_GATE = 0.15,  # nominal tunnel height
     NARROW_DIST = 0.7,      # distance (m) at which tunnel starts to narrow
     GATE_FLAT_DIST = 0.2,  # distance (m) from gate at which tunnel width remains at gate size
     Q_OMEGA = 2,          # weight for rotational rates (roll, pitch, yaw)
     R_VTHETA = 1.0,        # quadratic penalty on vtheta
     IN_GATE_RAMP_TIME = 0.3,
-    OUT_GATE_RAMP_TIME = 0.5
+    OUT_GATE_RAMP_TIME = 0.5,
+
+    REG_THRUST = 1.8e-2,
+    REG_INPUTS = 1.0e-1
 )
 
 
@@ -182,15 +185,17 @@ def export_quadrotor_ode_model() -> AcadosModel:
     bar = MX.log(1 + MX.exp(alpha*(g_n_pos))) + MX.log(1 + MX.exp(alpha*(g_n_neg))) \
         + MX.log(1 + MX.exp(alpha*(g_b_pos))) + MX.log(1 + MX.exp(alpha*(g_b_neg)))
     
-    
-    R_reg = 1e-1
+    R_input = MPCC_CFG["REG_INPUTS"]
+    R_thrust = MPCC_CFG["REG_THRUST"]
+
     stage_cost = (
         qc * ec_sq
         + ql * el_sq
         + Q_omega * omega_sq          
         + R_vth * dvtheta_cmd**2           
         - mu * vtheta                
-        + R_reg * (df_cmd**2 + dr_cmd**2 + dp_cmd**2 + dy_cmd**2)
+        + R_input * (dr_cmd**2 + dp_cmd**2 + dy_cmd**2)
+        + R_thrust * (df_cmd**2)
         + w_bar * bar
     )
 
@@ -301,7 +306,7 @@ def create_ocp_solver(
 
     # Solver Options
     ocp.solver_options.qp_solver = "PARTIAL_CONDENSING_HPIPM"
-    ocp.solver_options.hessian_approx = "GAUSS_NEWTON"  # GAUSS_NEWTON
+    ocp.solver_options.hessian_approx = "GAUSS_NEWTON"  # GAUSqcS_NEWTON
     ocp.solver_options.integrator_type = "ERK"
     ocp.solver_options.nlp_solver_type = "SQP"  # SQP_RTI
     ocp.solver_options.tol = 1e-7        
@@ -549,6 +554,8 @@ class MPController(Controller):
 
         if self._tick % 20 == 0:
             print(f"θ={self.last_theta:6.2f}  vθ={self.last_vtheta:4.2f}")
+            print(obs["gates_pos"])
+            print(self._new_gate)
 
         # Store predicted theta trajectory so that get_tunnel_regions()
         # can draw the stage‑wise tunnel rectangles for the next visualization

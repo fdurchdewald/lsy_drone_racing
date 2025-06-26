@@ -619,4 +619,5 @@ def thrust2pwm(thrust: float) -> float:
     pwm = np.maximum(pwm, 0.0)
     pwm = np.minimum(pwm, 1.0)
     thrust_pwm = pwm * pwm_max
+
     return thrust_pwm

@@ -280,75 +280,75 @@ def _quat_to_mat(q: NDArray) -> NDArray:
     )
 
 
-def draw_gates(
-    env: "RaceCoreEnv",
-    gates_pos: NDArray,  # (N,3)
-    gates_quat: NDArray,  # (N,4)  (x,y,z,w)
-    half_extents: NDArray | None = None,  # Loch-Halb­achsen  (x/2 , y/2 , z/2)
-    frame_thickness: float = 0.05,  # Balken­breite in Metern
-    rgba_opening: NDArray | None = None,  # Farbe des Lochs
-    rgba_frame: NDArray | None = None,  # Farbe der Balken
-) -> None:
-    """
-    Zeichnet Gate-Öffnung **und** rote Umrandungs­balken.
-    """
-    # ------------------- Defaults ------------------------------------------------
-    if half_extents is None:
-        half_extents = np.array([0.225, 0.05, 0.225], dtype=np.float32)  # 0.45×0.45 Loch
-    if rgba_opening is None:
-        rgba_opening = np.array([0.0, 0.4, 1.0, 0.35], dtype=np.float32)  # semi-transparent
-    if rgba_frame is None:
-        rgba_frame = np.array([1.0, 0.0, 0.0, 0.9], dtype=np.float32)  # deckend-rot
+# def draw_gates(
+#     env: "RaceCoreEnv",
+#     gates_pos: NDArray,  # (N,3)
+#     gates_quat: NDArray,  # (N,4)  (x,y,z,w)
+#     half_extents: NDArray | None = None,  # Loch-Halb­achsen  (x/2 , y/2 , z/2)
+#     frame_thickness: float = 0.05,  # Balken­breite in Metern
+#     rgba_opening: NDArray | None = None,  # Farbe des Lochs
+#     rgba_frame: NDArray | None = None,  # Farbe der Balken
+# ) -> None:
+#     """
+#     Zeichnet Gate-Öffnung **und** rote Umrandungs­balken.
+#     """
+#     # ------------------- Defaults ------------------------------------------------
+#     if half_extents is None:
+#         half_extents = np.array([0.225, 0.05, 0.225], dtype=np.float32)  # 0.45×0.45 Loch
+#     if rgba_opening is None:
+#         rgba_opening = np.array([0.0, 0.4, 1.0, 0.35], dtype=np.float32)  # semi-transparent
+#     if rgba_frame is None:
+#         rgba_frame = np.array([1.0, 0.0, 0.0, 0.9], dtype=np.float32)  # deckend-rot
 
-    sim = env.unwrapped.sim
-    if sim.viewer is None:  # Headless
-        return
-    viewer = sim.viewer.viewer
-weeks
-    # ------------- Geometrie-Parameter ------------------------------------------
-    w, d, h = half_extents * 2  # volle Öffnungs­breite/-tiefe/-höhe
-    t = frame_thickness  # Balken­stärke (voll)
-    d_half = half_extents[1]  # halbe Tiefe Y
+#     sim = env.unwrapped.sim
+#     if sim.viewer is None:  # Headless
+#         return
+#     viewer = sim.viewer.viewer
+    
+#     # ------------- Geometrie-Parameter ------------------------------------------
+#     w, d, h = half_extents * 2  # volle Öffnungs­breite/-tiefe/-höhe
+#     t = frame_thickness  # Balken­stärke (voll)
+#     d_half = half_extents[1]  # halbe Tiefe Y
 
-    # Halbe Kanten­längen der vier Balken
-    size_vert = np.array([t / 2, d_half, (h + 2 * t) / 2], dtype=np.float32)
-    size_horiz = np.array([(w + 2 * t) / 2, d_half, t / 2], dtype=np.float32)
+#     # Halbe Kanten­längen der vier Balken
+#     size_vert = np.array([t / 2, d_half, (h + 2 * t) / 2], dtype=np.float32)
+#     size_horiz = np.array([(w + 2 * t) / 2, d_half, t / 2], dtype=np.float32)
 
-    # Lokale Offsets der Balken­zentren
-    offs_left = np.array([-(w / 2 + t / 2), 0.0, 0.0], dtype=np.float32)
-    offs_right = -offs_left
-    offs_bottom = np.array([0.0, 0.0, -(h / 2 + t / 2)], dtype=np.float32)
-    offs_top = -offs_bottom
-    offsets = [
-        (offs_left, size_vert),
-        (offs_right, size_vert),
-        (offs_bottom, size_horiz),
-        (offs_top, size_horiz),
-    ]
+#     # Lokale Offsets der Balken­zentren
+#     offs_left = np.array([-(w / 2 + t / 2), 0.0, 0.0], dtype=np.float32)
+#     offs_right = -offs_left
+#     offs_bottom = np.array([0.0, 0.0, -(h / 2 + t / 2)], dtype=np.float32)
+#     offs_top = -offs_bottom
+#     offsets = [
+#         (offs_left, size_vert),
+#         (offs_right, size_vert),
+#         (offs_bottom, size_horiz),
+#         (offs_top, size_horiz),
+#     ]
 
-    # ------------- Rendering-Loop ----------------------------------------------
-    for pos, q in zip(gates_pos, gates_quat):
-        R = _quat_to_mat(q)
+#     # ------------- Rendering-Loop ----------------------------------------------
+#     for pos, q in zip(gates_pos, gates_quat):
+#         R = _quat_to_mat(q)
 
-        # 1) Öffnung
-        viewer.add_marker(
-            type=mujoco.mjtGeom.mjGEOM_BOX,
-            size=half_extents,weeks
-            pos=pos,
-            mat=R.reshape(-1),
-            rgba=rgba_opening,
-        )
+#         # 1) Öffnung
+#         viewer.add_marker(
+#             type=mujoco.mjtGeom.mjGEOM_BOX,
+#             size=half_extents,weeks
+#             pos=pos,
+#             mat=R.reshape(-1),
+#             rgba=rgba_opening,
+#         )
 
-        # 2) Vier Rahmen­balken
-        for off_local, size in offsets:
-            off_world = R @ off_local
-            viewer.add_marker(
-                type=mujoco.mjtGeom.mjGEOM_BOX,
-                size=size,
-                pos=pos + off_world,
-                mat=R.reshape(-1),
-                rgba=rgba_frame,
-            )
+#         # 2) Vier Rahmen­balken
+#         for off_local, size in offsets:
+#             off_world = R @ off_local
+#             viewer.add_marker(
+#                 type=mujoco.mjtGeom.mjGEOM_BOX,
+#                 size=size,
+#                 pos=pos + off_world,
+#                 mat=R.reshape(-1),
+#                 rgba=rgba_frame,
+#             )
 
 def draw_tunnel(env, pos_on_path, s_total,
                 w=1.0, h=1.0, step=0.2,

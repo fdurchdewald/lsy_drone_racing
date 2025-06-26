@@ -13,9 +13,9 @@ check_race_track = true
 # Whether to check if the drone start position is within the limits specified down below.
 check_drone_start_pos = true
 # Lets you practice your controller without putting up gates & obstacles, assumes nominal positions given below.
-practice_without_track_objects = false
+real_track_objects = true
 [[deploy.drones]]
-id = 91
+id = 99
 channel = 100
 
 [sim]
@@ -30,7 +30,7 @@ gui = false                                       # Enable/disable PyBullet's GU
 id = "DroneRacing-v0"   # "DroneRacing-v0" for single races, "MultiDroneRacing-v0" for multi-drone races. Each environment also implements a vector-environment for faster training
 seed = 1337             # Random seed
 freq = 50               # Frequency of the environment's step function, in Hz
-sensor_range = 0.5      # Range at which the exact location of gates and obstacles become visible to the drone. Objects that are not in the drone's sensor range report their nominal position.
+sensor_range = 0.6      # Range at which the exact location of gates and obstacles become visible to the drone. Objects that are not in the drone's sensor range report their nominal position.
 control_mode = "attitude"  # Control mode of the environment. Can be either "state" or "attitude"
 
 [env.track]
@@ -51,13 +51,13 @@ rpy = [0.0, 0.0, 3.14]
 
 # Obstacle height: 1.4m. Height is measured from the ground to the top of the obstacle.
 [[env.track.obstacles]]
-pos = [-5.0, -5.0, 1.4]
+pos = [2.0, -2.0, 1.4]
 [[env.track.obstacles]]
-pos = [-5.0, 5.0, 1.4]
+pos = [2.0, -1.0, 1.4]
 [[env.track.obstacles]]
-pos = [5.0, -5.0, 1.4]
+pos = [2.0, 0.0, 1.4]
 [[env.track.obstacles]]
-pos = [5.0, 5.0, 1.4]
+pos = [2.0, 1.0, 1.4]
  
 [[env.track.drones]]
 pos = [1.0, 1.5, 0.07]
