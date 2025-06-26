@@ -1,0 +1,36 @@
+2025-06-26 12:48:05,239 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-26 12:48:05,240 | DEBUG   | {
+  "xcurrent": [
+    1.0279301404953003,
+    1.5174765586853027,
+    0.07345543801784515,
+    0.005215260665863752,
+    0.002863673958927393,
+    0.004861108027398586
+  ],
+  "params": {
+    "QC": 10,
+    "QC_GATE": 50,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.8,
+    "N": 20,
+    "T_HORIZON": 1.0,
+    "RAMP_TIME": 1.8,
+    "BARRIER_WEIGHT": 10,
+    "TUNNEL_WIDTH": 0.4,
+    "TUNNEL_WIDTH_GATE": 0.15,
+    "NARROW_DIST": 0.7,
+    "GATE_FLAT_DIST": 0.2,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "IN_GATE_RAMP_TIME": 0.3,
+    "OUT_GATE_RAMP_TIME": 0.5,
+    "REG_THRUST": 0.018,
+    "REG_INPUTS": 0.1
+  },
+  "box_lims": {
+    "vtheta_max": 1.8,
+    "dvtheta_max": 1.8
+  }
+}
