@@ -304,7 +304,7 @@ def draw_gates(
     if sim.viewer is None:  # Headless
         return
     viewer = sim.viewer.viewer
-
+weeks
     # ------------- Geometrie-Parameter ------------------------------------------
     w, d, h = half_extents * 2  # volle Öffnungs­breite/-tiefe/-höhe
     t = frame_thickness  # Balken­stärke (voll)
@@ -333,7 +333,7 @@ def draw_gates(
         # 1) Öffnung
         viewer.add_marker(
             type=mujoco.mjtGeom.mjGEOM_BOX,
-            size=half_extents,
+            size=half_extents,weeks
             pos=pos,
             mat=R.reshape(-1),
             rgba=rgba_opening,
@@ -592,3 +592,10 @@ def draw_obstacle_constraints(
         # draw_cylinder_obstacle erwartet (env, top_center, radius, height, rgba)
         # Höhe = top_point[2], Zylinder geht von 0 bis z_top
         draw_cylinder_obstacle(env, top_point, radius=radius, height=top_point[2], rgba=rgba)
+def _rotation_matrix_from_points(p1: NDArray, p2: NDArray) -> R:
+    """Generate rotation matrices that align their z-axis to p2-p1."""
+    z_axis = (v := p2 - p1) / np.linalg.norm(v, axis=-1, keepdims=True)
+    random_vector = np.random.rand(*z_axis.shape)
+    x_axis = (v := np.cross(random_vector, z_axis)) / np.linalg.norm(v, axis=-1, keepdims=True)
+    y_axis = np.cross(z_axis, x_axis)
+    return R.from_matrix(np.stack((x_axis, y_axis, z_axis), axis=-1))
