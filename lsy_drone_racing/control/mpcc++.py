@@ -27,17 +27,17 @@ if TYPE_CHECKING:
 
 log = get_logger()
 
-
 MPCC_CFG = dict(
     QC=10,
-    QC_GATE=50,
+    QC_GATE=10,
     QL=40,
-    MU=10,
-    DVTHETA_MAX=1.7,
+    MU=5,
+    DVTHETA_MAX=1.5,
     N=15,
     T_HORIZON=0.8,
     RAMP_TIME=1.8,
-    BARRIER_WEIGHT = 10, 
+    BARRIER_WEIGHT = 10,
+    OBSTACLE_WEIGHT = 80,
     TUNNEL_WIDTH = 0.5,  # nominal tunnel width
     TUNNEL_WIDTH_GATE = 0.15,  # nominal tunnel height
     NARROW_DIST = 0.7,      # distance (m) at which tunnel starts to narrow
@@ -45,7 +45,8 @@ MPCC_CFG = dict(
     Q_OMEGA = 2,          # weight for rotational rates (roll, pitch, yaw)
     R_VTHETA = 1.0,        # quadratic penalty on vtheta
     IN_GATE_RAMP_TIME = 0.3,
-    OUT_GATE_RAMP_TIME = 0.5
+    OUT_GATE_RAMP_TIME = 0.5,
+    OBSTACLE_RADIUS = 0.15 #0.1x0.1
 )
 
 
@@ -59,6 +60,10 @@ def export_quadrotor_ode_model() -> AcadosModel:
     GRAVITY = 9.806
 
     # Sys ID Params
+
+
+    M_OBS   = 4                          # maximum number of obstacles
+    N_PARAM = 18 + 4 * M_OBS             # 4 parameters per obstacle (ox, oy, a, b)
     params_pitch_rate = [-6.003842038081178, 6.213752925707588]
     params_roll_rate = [-3.960889336015948, 4.078293254657104]
     params_yaw_rate = [-0.005347588299390372, 0.0]
@@ -93,7 +98,7 @@ def export_quadrotor_ode_model() -> AcadosModel:
     dvtheta_cmd = MX.sym("dvtheta_cmd")
 
 
-    p = MX.sym("p", 18)
+    p = MX.sym("p", N_PARAM)
     px_r, py_r, pz_r = p[0], p[1], p[2]
     tx,   ty,   tz   = p[3], p[4], p[5]
     qc,   ql,   mu   = p[6], p[7], p[8]
@@ -182,17 +187,35 @@ def export_quadrotor_ode_model() -> AcadosModel:
     bar = MX.log(1 + MX.exp(alpha*(g_n_pos))) + MX.log(1 + MX.exp(alpha*(g_n_neg))) \
         + MX.log(1 + MX.exp(alpha*(g_b_pos))) + MX.log(1 + MX.exp(alpha*(g_b_neg)))
     
+    # ----- obstacle penalty (safe) -----------------------------------------
+    alpha_obs = 30.0                        # <<  change from 100
+    bar_obs = 0
+    idx0 = 18
+    for k in range(M_OBS):
+        ox = p[idx0 + 4*k + 0]
+        oy = p[idx0 + 4*k + 1]
+        r  = p[idx0 + 4*k + 3]              # radius
+        # positive inside, negative outside
+        g_obs = r**2 - ((px - ox)**2 + (py - oy)**2)
+        # numerically stable soft-plus
+        bar_obs += (1/alpha_obs) * MX.log1p(MX.exp(alpha_obs * g_obs))
+
+    w_obs = MPCC_CFG["OBSTACLE_WEIGHT"]  
+
+
     
     R_reg = 1e-1
     stage_cost = (
         qc * ec_sq
         + ql * el_sq
-        + Q_omega * omega_sq          
-        + R_vth * dvtheta_cmd**2           
-        - mu * vtheta                
+        + Q_omega * omega_sq
+        + R_vth * dvtheta_cmd**2
+        - mu * vtheta
         + R_reg * (df_cmd**2 + dr_cmd**2 + dp_cmd**2 + dy_cmd**2)
-        + w_bar * bar
+        + w_bar * bar            # tunnel walls
+        + w_obs * bar_obs        # >>> obstacles <<<
     )
+
 
 
 
@@ -232,10 +255,11 @@ def create_ocp_solver(
     # Cost Type
     ocp.cost.cost_type = "EXTERNAL"
 
-    # Tell acados how many parameters each stage has
-    ocp.dims.np = 18
-    # default parameter vector (will be overwritten at run time)
-    ocp.parameter_values = np.zeros(18)
+    M_OBS = 4                       # keep in sync with the model
+    N_PARAM = 18 + 4*M_OBS
+    ocp.dims.np         = N_PARAM
+    ocp.parameter_values = np.zeros(N_PARAM)
+
 
     # Set state constraints: collective thrust, Euler commands, and virtual progress speed
     ocp.constraints.idxbx = np.array([9, 10, 11, 12, 13, 15])
@@ -457,6 +481,10 @@ class MPController(Controller):
         self._current_gate = np.array([0.0, 0.0, 0.0])  # Placeholder for current gate position
         self._planning_points = np.zeros((self.N + 1, 3))  # Store the planned trajectory points
 
+        # --- obstacle settings --------------------------------------------------
+        self.M_OBS      = 4
+        self._obs_rad   = MPCC_CFG["OBSTACLE_RADIUS"]
+
     def compute_control(
         self, obs: dict[str, NDArray[np.floating]], info: dict | None = None
     ) -> NDArray[np.floating]:
@@ -640,14 +668,24 @@ class MPController(Controller):
                     self.w_nom = MPCC_CFG["TUNNEL_WIDTH"]
                     self.h_nom = MPCC_CFG["TUNNEL_WIDTH"]
            # print(qc_val)
+            # ---- obstacle parameters ---------------------------------------------
+            # obs["obstacles_pos"] is (4,3): nominal until revealed, then true coords
+            obstacle_params = []
+            for k in range(self.M_OBS):                       # self.M_OBS == 4
+                ox, oy, oz = obs["obstacles_pos"][k]          # nominal or revealed
+                obstacle_params.extend([ox, oy, oz, self._obs_rad])
+
+            # ---------------- Assemble the full parameter vector --------------- #
             p_vec = np.concatenate([
-                pref,
-                tangent,
-                [qc_val, ql_val, mu_val],
-                n,
-                b,
-                [w/2, h/2, bw_val]
-            ])
+                pref,                 #  3
+                tangent,              #  3
+                [qc_val, ql_val, mu_val],  # 3
+                n,                    #  3
+                b,                    #  3
+                [w/2, h/2, bw_val],   # 3
+                obstacle_params       # 16  (4 obstacles × 4)
+            ])                         # ----
+
             self.acados_ocp_solver.set(j, "p", p_vec)
             self._planning_points.append(pref)  # Store the planned trajectory points
 

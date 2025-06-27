@@ -592,3 +592,26 @@ def draw_obstacle_constraints(
         # draw_cylinder_obstacle erwartet (env, top_center, radius, height, rgba)
         # Höhe = top_point[2], Zylinder geht von 0 bis z_top
         draw_cylinder_obstacle(env, top_point, radius=radius, height=top_point[2], rgba=rgba)
+
+def draw_cylinder_obstacle(
+    env,
+    top_center: np.ndarray,
+    radius: float = 0.18,
+    height: float = 1.4,
+    rgba: np.ndarray = np.array([1.0, 0.0, 0.0, 0.4], dtype=np.float32),
+):
+    """
+    Adds a vertical translucent cylinder whose top centre is `top_center`
+    and whose bottom sits on the floor (z=0).
+    """
+    sim = env.unwrapped.sim
+    if sim.viewer is None:
+        return
+    viewer = sim.viewer.viewer
+    # MuJoCo wants half-sizes along x,y, full along z.  Use an MJ marker.
+    viewer.add_marker(
+        type=mujoco.mjtGeom.mjGEOM_CYLINDER,
+        pos=np.array([*top_center[:2], height / 2]),
+        size=np.array([radius, radius, height / 2]),
+        rgba=rgba,
+    )

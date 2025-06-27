@@ -1,0 +1,74 @@
+2025-06-25 22:52:35,960 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-25 22:52:35,960 | DEBUG   | {
+  "xcurrent": [
+    1.089695930480957,
+    1.4088244438171387,
+    0.08456537127494812,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QC_GATE": 50,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.7,
+    "N": 15,
+    "T_HORIZON": 0.8,
+    "RAMP_TIME": 1.8,
+    "BARRIER_WEIGHT": 10,
+    "OBSTACLE_WEIGHT": 1,
+    "TUNNEL_WIDTH": 0.5,
+    "TUNNEL_WIDTH_GATE": 0.15,
+    "NARROW_DIST": 0.7,
+    "GATE_FLAT_DIST": 0.2,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "IN_GATE_RAMP_TIME": 0.3,
+    "OUT_GATE_RAMP_TIME": 0.5,
+    "OBSTACLE_RADIUS": 0.1
+  },
+  "box_lims": {
+    "vtheta_max": 1.7,
+    "dvtheta_max": 1.7
+  }
+}
+2025-06-25 22:52:35,967 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:52:35,968 | ERROR   | Dump saved → debug_logs/fail/tick0000.json
+2025-06-25 22:52:40,638 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:52:40,639 | ERROR   | Dump saved → debug_logs/fail/tick0001.json
+2025-06-25 22:52:40,682 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:52:40,684 | ERROR   | Dump saved → debug_logs/fail/tick0002.json
+2025-06-25 22:52:40,721 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:52:40,723 | ERROR   | Dump saved → debug_logs/fail/tick0003.json
+2025-06-25 22:52:40,762 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:52:40,764 | ERROR   | Dump saved → debug_logs/fail/tick0004.json
+2025-06-25 22:52:40,802 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:52:40,803 | ERROR   | Dump saved → debug_logs/fail/tick0005.json
+2025-06-25 22:52:40,842 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:52:40,843 | ERROR   | Dump saved → debug_logs/fail/tick0006.json
+2025-06-25 22:52:40,881 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:52:40,883 | ERROR   | Dump saved → debug_logs/fail/tick0007.json
+2025-06-25 22:52:40,920 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:52:40,922 | ERROR   | Dump saved → debug_logs/fail/tick0008.json
+2025-06-25 22:52:40,959 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:52:40,961 | ERROR   | Dump saved → debug_logs/fail/tick0009.json
+2025-06-25 22:52:41,000 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:52:41,001 | ERROR   | Dump saved → debug_logs/fail/tick0010.json
+2025-06-25 22:52:41,038 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:52:41,040 | ERROR   | Dump saved → debug_logs/fail/tick0011.json
+2025-06-25 22:52:41,078 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:52:41,079 | ERROR   | Dump saved → debug_logs/fail/tick0012.json
+2025-06-25 22:52:41,117 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:52:41,118 | ERROR   | Dump saved → debug_logs/fail/tick0013.json
+2025-06-25 22:52:41,157 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:52:41,158 | ERROR   | Dump saved → debug_logs/fail/tick0014.json
+2025-06-25 22:52:41,196 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:52:41,197 | ERROR   | Dump saved → debug_logs/fail/tick0015.json
+2025-06-25 22:52:41,243 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:52:41,245 | ERROR   | Dump saved → debug_logs/fail/tick0016.json
+2025-06-25 22:52:41,292 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:52:41,294 | ERROR   | Dump saved → debug_logs/fail/tick0017.json
+2025-06-25 22:52:41,332 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:52:41,333 | ERROR   | Dump saved → debug_logs/fail/tick0018.json

@@ -1,0 +1,74 @@
+2025-06-25 22:49:53,381 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-25 22:49:53,382 | DEBUG   | {
+  "xcurrent": [
+    1.089695930480957,
+    1.4088244438171387,
+    0.08456537127494812,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QC_GATE": 50,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.7,
+    "N": 15,
+    "T_HORIZON": 0.8,
+    "RAMP_TIME": 1.8,
+    "BARRIER_WEIGHT": 10,
+    "OBSTACLE_WEIGHT": 30,
+    "TUNNEL_WIDTH": 0.5,
+    "TUNNEL_WIDTH_GATE": 0.15,
+    "NARROW_DIST": 0.7,
+    "GATE_FLAT_DIST": 0.2,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "IN_GATE_RAMP_TIME": 0.3,
+    "OUT_GATE_RAMP_TIME": 0.5,
+    "OBSTACLE_RADIUS": 0.1
+  },
+  "box_lims": {
+    "vtheta_max": 1.7,
+    "dvtheta_max": 1.7
+  }
+}
+2025-06-25 22:49:53,388 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.001s
+2025-06-25 22:49:53,390 | ERROR   | Dump saved → debug_logs/fail/tick0000.json
+2025-06-25 22:50:08,999 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:50:09,000 | ERROR   | Dump saved → debug_logs/fail/tick0001.json
+2025-06-25 22:50:09,044 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:50:09,045 | ERROR   | Dump saved → debug_logs/fail/tick0002.json
+2025-06-25 22:50:09,084 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:50:09,085 | ERROR   | Dump saved → debug_logs/fail/tick0003.json
+2025-06-25 22:50:09,127 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.001s
+2025-06-25 22:50:09,129 | ERROR   | Dump saved → debug_logs/fail/tick0004.json
+2025-06-25 22:50:09,167 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:50:09,168 | ERROR   | Dump saved → debug_logs/fail/tick0005.json
+2025-06-25 22:50:09,206 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:50:09,208 | ERROR   | Dump saved → debug_logs/fail/tick0006.json
+2025-06-25 22:50:09,261 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.001s
+2025-06-25 22:50:09,262 | ERROR   | Dump saved → debug_logs/fail/tick0007.json
+2025-06-25 22:50:09,302 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.001s
+2025-06-25 22:50:09,304 | ERROR   | Dump saved → debug_logs/fail/tick0008.json
+2025-06-25 22:50:09,344 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:50:09,346 | ERROR   | Dump saved → debug_logs/fail/tick0009.json
+2025-06-25 22:50:09,386 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:50:09,387 | ERROR   | Dump saved → debug_logs/fail/tick0010.json
+2025-06-25 22:50:09,428 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.001s
+2025-06-25 22:50:09,430 | ERROR   | Dump saved → debug_logs/fail/tick0011.json
+2025-06-25 22:50:09,468 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:50:09,470 | ERROR   | Dump saved → debug_logs/fail/tick0012.json
+2025-06-25 22:50:09,509 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:50:09,511 | ERROR   | Dump saved → debug_logs/fail/tick0013.json
+2025-06-25 22:50:09,557 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:50:09,558 | ERROR   | Dump saved → debug_logs/fail/tick0014.json
+2025-06-25 22:50:09,599 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:50:09,600 | ERROR   | Dump saved → debug_logs/fail/tick0015.json
+2025-06-25 22:50:09,639 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:50:09,641 | ERROR   | Dump saved → debug_logs/fail/tick0016.json
+2025-06-25 22:50:09,680 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:50:09,681 | ERROR   | Dump saved → debug_logs/fail/tick0017.json
+2025-06-25 22:50:09,719 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-25 22:50:09,721 | ERROR   | Dump saved → debug_logs/fail/tick0018.json
