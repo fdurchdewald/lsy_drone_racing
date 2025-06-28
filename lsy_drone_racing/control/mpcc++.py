@@ -28,24 +28,24 @@ if TYPE_CHECKING:
 log = get_logger()
 
 
+
 MPCC_CFG = dict(
     QC=10,
     QC_GATE=50,
     QL=40,
     MU=10,
-    DVTHETA_MAX=1.8,
+    DVTHETA_MAX=1.0,
     N=20,
-    T_HORIZON=1.0,
-    RAMP_TIME=1.8,
+    T_HORIZON=0.8,
+    RAMP_TIME= 0.6,
+
     BARRIER_WEIGHT = 10, 
     TUNNEL_WIDTH = 0.4,  # nominal tunnel width
     TUNNEL_WIDTH_GATE = 0.15,  # nominal tunnel height
     NARROW_DIST = 0.7,      # distance (m) at which tunnel starts to narrow
-    GATE_FLAT_DIST = 0.2,  # distance (m) from gate at which tunnel width remains at gate size
+    GATE_FLAT_DIST = 0.5,  # distance (m) from gate at which tunnel width remains at gate size
     Q_OMEGA = 2,          # weight for rotational rates (roll, pitch, yaw)
     R_VTHETA = 1.0,        # quadratic penalty on vtheta
-    IN_GATE_RAMP_TIME = 0.3,
-    OUT_GATE_RAMP_TIME = 0.5,
 
     REG_THRUST = 1.8e-2,
     REG_INPUTS = 1.0e-1
@@ -354,38 +354,58 @@ class MPController(Controller):
         self._update_tick_post_gate = False
         self._update_tick_pre_gate = False
         self._target_gate_pos = obs["gates_pos"][obs["target_gate"]]  # 3‑D np.array
-        # Same waypoints as in the trajectory controller. Determined by trial and error.
+        # ------------------------------------------------------------------
+        #  Build initial waypoint list with dynamic gate‑dependent points
+        # ------------------------------------------------------------------
+        self.d_gate = 0.2  # distance before/after each gate [m]
+
+        # Compute approach and exit points for all gates
+        gates_pos  = obs["gates_pos"]           # shape (4,3)
+        gates_quat = obs["gates_quat"]          # shape (4,4)  (w,x,y,z) or (x,y,z,w) ?
+        pre_post   = [pre_post_points(gates_pos[i], gates_quat[i], self.d_gate)
+                      for i in range(len(gates_pos))]
+
+        pre_gate0, post_gate0 = pre_post[0]
+        pre_gate1, post_gate1 = pre_post[1]
+        pre_gate2, post_gate2 = pre_post[2]
+        pre_gate3, post_gate3 = pre_post[3]
+
         waypoints = np.array(
             [
                 [1.0896959, 1.4088244, MPCC_CFG["TUNNEL_WIDTH"] / 2],
                 [0.95, 1.0, 0.3],
                 [0.8, 0.1, 0.4],
-                obs["gates_pos"][0],  # gate1
-                [0.35, -0.8, 0.65],
+                pre_gate0,
+                gates_pos[0],     # gate0 centre
+                post_gate0,
                 [0.5, -1.3, 0.85],
-                obs["gates_pos"][1],  # gate2
+                pre_gate1,
+                gates_pos[1],     # gate1 centre
+                post_gate1,
                 [1.15, -0.75, 1.0],
                 [0.5, 0.1, 0.8],
-                obs["gates_pos"][2],    # gate3
+                pre_gate2,
+                gates_pos[2],     # gate2 centre
+                post_gate2,
                 [-0.1, 1.3, 0.56],
                 [-0.3, 1.2, 1.0],
                 [-0.4, 0.4, 1.1],
-                obs["gates_pos"][3],   # gate4
+                pre_gate3,
+                gates_pos[3],     # gate3 centre
+                post_gate3,
                 [-0.5, -2, 1.11],
-                [-0.5, -6, 1.11],
-
-
-
+                [-0.5, -6, 1.11]
             ]
         )
 
         self._waypoints = waypoints
+        # Map each gate index to its waypoint index (centre of gate in list)
         self._gate_to_wp_index = {
-            0: 3,
-            1: 6,
-            2: 9,
-            3: 13
-        }  
+            0: 4,
+            1: 8,
+            2: 13,
+            3: 19,
+        }
         #-----------------------------------------------------------------
         # Arc‑length parametrisation of the reference path  (no wall‑clock time)
         # ------------------------------------------------------------------
@@ -419,13 +439,13 @@ class MPController(Controller):
         self.last_vtheta = 0
         self.config = config
         self.finished = False
-        self._gate_idx = 0
-        self._target = True
-        self.start = True
         self._ref_point = np.zeros(3)
         self.safe_pos = np.zeros(3)  
         self._planned_traj = np.zeros((self.N + 1, 3))
-        self._pos_on_path = None  
+        # --- Track waypoint changes to trigger Barrier‑Weight ramp ----------
+        self._prev_waypoints = self._waypoints.copy()
+        # start barrier-weight ramp from simulation start
+        self._bw_ramp_elapsed = 0.0
         
         # Store predicted theta trajectory for reference in next iteration
         self._predicted_theta = np.zeros(self.N + 1)
@@ -449,17 +469,7 @@ class MPController(Controller):
         self._target_gate_pos = obs["gates_pos"][obs["target_gate"]]             # (für Debug/Plot)
         # flag to generate a straight tunnel to the gate once
         self._use_line_tunnel = False
-        # Placeholder for dynamic gate information (position + orientation quaternion)
-        self.gate_pos: np.ndarray | None = None
-        self.gate_quat: np.ndarray | None = None
-        # Gate opening size (full width/height) in metres
-        self.gate_width: float = 0.30   # reduced width of gate opening
-        self.gate_height: float = 0.30  # reduced height of gate opening
-        self.gate_depth: float = 0.3   # thickness along path/tangent (m)
-        self._new_gate = False
         self._target_gate = 0
-        self._current_gate = obs["gates_pos"][obs["target_gate"]]
-        self._current_gate = np.array([0.0, 0.0, 0.0])  # Placeholder for current gate position
         self._planning_points = np.zeros((self.N + 1, 3))  # Store the planned trajectory points
 
     def compute_control(
@@ -485,16 +495,14 @@ class MPController(Controller):
         if self._tick == 0:             # nur am allerersten Aufruf
             self._dump_initial_state(obs)
 
-        if self._new_gate is False:
-            if np.all(obs["gates_pos"][int(obs["target_gate"])] != self._target_gate_pos):
-                # print(f"New gate detected: {int(obs['target_gate'])}")
-                self._new_gate = True
+        self.update_trajectorie(obs["gates_pos"], obs["gates_quat"])
+        # advance BW‑ramp timer (if active)
+        if self._bw_ramp_elapsed is not None:
+            self._bw_ramp_elapsed += self.dt
+
+        if np.all(obs["gates_pos"][int(obs["target_gate"])] != self._target_gate_pos):
                 self._target_gate_pos = obs["gates_pos"][int(obs["target_gate"])]
-                self.update_trajectorie()
-        if self._new_gate is True:
-            if self._target_gate != int(obs["target_gate"]):
-                # print(f"Target gate changed: {int(obs['target_gate'])}")
-                self._new_gate = False
+        if self._target_gate != int(obs["target_gate"]):
                 self._target_gate = int(obs["target_gate"])
                 self._target_gate_pos = obs["gates_pos"][int(obs["target_gate"])]
 
@@ -506,9 +514,6 @@ class MPController(Controller):
             self._update_tick_post_gate = False
 
 
-        if False:
-            print('Finished')
-            self.finished = True
 
         q = obs["quat"]
         r = R.from_quat(q)
@@ -555,7 +560,6 @@ class MPController(Controller):
         if self._tick % 20 == 0:
             print(f"θ={self.last_theta:6.2f}  vθ={self.last_vtheta:4.2f}")
             print(obs["gates_pos"])
-            print(self._new_gate)
 
         # Store predicted theta trajectory so that get_tunnel_regions()
         # can draw the stage‑wise tunnel rectangles for the next visualization
@@ -574,6 +578,14 @@ class MPController(Controller):
             self._ref_point = pref
             pref_next = self.pos_on_path(s_ref + 0.001)
             tangent = unit(pref_next - pref)
+            # ------------------------------------------------------------
+            # Barrier‑Weight ramp based on elapsed time since WP change
+            # ------------------------------------------------------------
+            if self._bw_ramp_elapsed is not None:
+                ramp = min(1.0, self._bw_ramp_elapsed / MPCC_CFG["RAMP_TIME"])
+                bw_val = MPCC_CFG["BARRIER_WEIGHT"] * ramp**2
+            else:
+                bw_val = MPCC_CFG["BARRIER_WEIGHT"]
 
             # Dynamically shrink tunnel as the drone approaches the target gate
             dist_gate = np.linalg.norm(pref - self._target_gate_pos)
@@ -610,43 +622,21 @@ class MPController(Controller):
 
             self._stage_wh.append((w, h))
 
-
-            if self._target_gate == 0 and self._new_gate is False:
+            # QC and QL weights: initial ramp at simulation start, then constant
+            if self._target_gate == 0:
                 self._update_tick_post_gate = True
                 self._update_tick_pre_gate = True
-
                 ramp = min(1.0, self._tick * self.dt / MPCC_CFG["RAMP_TIME"])
-
-                mu_val  = MPCC_CFG["MU"]  * ramp
-                bw_val  = MPCC_CFG["BARRIER_WEIGHT"] * ramp**2   
-                qc_val  = MPCC_CFG["QC"] * (0.5 + 0.5*ramp)      
-                ql_val  = MPCC_CFG["QL"] * (0.5 + 0.5*ramp)
-                mu_val = MPCC_CFG["MU"] * ramp if j < self.N else 0.0
-                qc_val = MPCC_CFG["QC"]
-                ql_val = MPCC_CFG["QL"]
-
-            if self._new_gate is True or self._target_gate != 0:
-                mu_val  = MPCC_CFG["MU"]
+                mu_val  = MPCC_CFG["MU"] * ramp if j < self.N else 0.0
+                qc_val  = MPCC_CFG["QC"] * (0.5 + 0.5 * ramp)
+                ql_val  = MPCC_CFG["QL"] * (0.5 + 0.5 * ramp)
+            else:
+                mu_val  = MPCC_CFG["MU"] if j < self.N else 0.0
+                qc_val  = MPCC_CFG["QC"]
                 ql_val  = MPCC_CFG["QL"]
-                mu_val = MPCC_CFG["MU"] if j < self.N else 0.0
-
-                if self._new_gate is True:
-                    self._update_tick_post_gate = True
-                    ramp = min(1.0, (self._tick-self._save_tick_pre_gate) * self.dt / MPCC_CFG["IN_GATE_RAMP_TIME"])
-                    bw_val  = MPCC_CFG["BARRIER_WEIGHT"] * ramp**2   
-                    # Interpolate QC from its normal value to the gate‑specific value
-                    qc_val = (1.0 - ramp) * MPCC_CFG["QC"] + ramp * MPCC_CFG["QC_GATE"]
-                    self.w_nom = MPCC_CFG["TUNNEL_WIDTH_GATE"]
-                    self.h_nom = MPCC_CFG["TUNNEL_WIDTH_GATE"]
-                else:
-                    self._update_tick_pre_gate = True
-                    ramp = min(1.0, (self._tick-self._save_tick_post_gate) * self.dt / MPCC_CFG["OUT_GATE_RAMP_TIME"])
-                    bw_val  = MPCC_CFG["BARRIER_WEIGHT"] * ramp**2
-                    # Interpolate QC back to the normal value
-                    qc_val = (1.0 - ramp) * MPCC_CFG["QC_GATE"] + ramp * MPCC_CFG["QC"]
-                    self.w_nom = MPCC_CFG["TUNNEL_WIDTH"]
-                    self.h_nom = MPCC_CFG["TUNNEL_WIDTH"]
-           # print(qc_val)
+                self._update_tick_pre_gate = True
+                self.w_nom = MPCC_CFG["TUNNEL_WIDTH"]
+                self.h_nom = MPCC_CFG["TUNNEL_WIDTH"]
             p_vec = np.concatenate([
                 pref,
                 tangent,
@@ -681,7 +671,7 @@ class MPController(Controller):
             xj = self.acados_ocp_solver.get(j, "x")
             planned_traj[j] = xj[:3]   # first three state entries: px, py, pz
         self._planned_traj = planned_traj
-        
+        print(bw_val)
         return cmd
 
     def step_callback(
@@ -751,9 +741,9 @@ class MPController(Controller):
             regions.append(np.vstack((corner0, corner1, corner2, corner3)))
         return np.array(regions)
 
-    # def get_waypoints(self) -> NDArray[np.floating]:
-    #     """Get the waypoints of the trajectory."""
-    #     return self._waypoints
+    def get_waypoints(self) -> NDArray[np.floating]:
+        """Get the waypoints of the trajectory."""
+        return self._waypoints
     def get_planning_points(self) -> NDArray[np.floating]:
         """Get the reference points of the trajectory."""
         return self._planning_points
@@ -805,10 +795,21 @@ class MPController(Controller):
         }, indent=1))
         log.error(f"Dump saved → {path}")
 
-    def update_trajectorie(self):
-        print(self._target_gate)
-        idx = self._gate_to_wp_index.get(int(self._target_gate))
-        self._waypoints[idx] = self._target_gate_pos
+    def update_trajectorie(self, gate_pos: NDArray[np.floating], gate_quat: NDArray[np.floating]):
+        for i, (pos, quat) in enumerate(zip(gate_pos, gate_quat)):
+            idx = self._gate_to_wp_index.get(i)
+            pre,post = pre_post_points(pos, quat, self.d_gate)            
+            self._waypoints[idx-1] = pre
+            self._waypoints[idx] = pos
+            self._waypoints[idx+1] = post
+            # Optional: falls du auch mit gate_quat etwas machen willst, hier weiterverarbeiten
+
+        # ---- Detect waypoint changes ---------------------------------------
+        changed = not np.allclose(self._waypoints, self._prev_waypoints)
+        if changed:
+            self._bw_ramp_elapsed = 0.0       # start BW‑ramp timer
+            self._prev_waypoints = self._waypoints.copy()
+
         seg_lens = np.linalg.norm(np.diff(self._waypoints, axis=0), axis=1)
         s_grid = np.hstack(([0.0], np.cumsum(seg_lens)))  # shape (K,)
         self.s_total = float(s_grid[-1])
@@ -841,4 +842,21 @@ def tunnel_bounds(pos_on_path, s: float,
 
 def unit(v):
     n = np.linalg.norm(v)
-    return v / n if n > 1e-6 else np.array([1.0, 0.0, 0.0])
+    return v / n if n > 1e-6 else np.array([1.0, 0.0, 0.0]) 
+
+def pre_post_points(gate_pos: np.ndarray,
+                    gate_quat: np.ndarray,
+                    dist: float = 0.1) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Compute points before and after a gate along its local normal.
+    gate_quat is assumed in [x, y, z, w] order.
+    """
+    # build rotation from quaternion
+    rot = R.from_quat(gate_quat)
+    # local normal along gate's Z-axis
+    normal = rot.apply(np.array([0.0, 1.0, 0.0]))
+    # normalize to unit length
+    normal = normal / (np.linalg.norm(normal) + 1e-9)
+    pre = gate_pos - dist * normal
+    post = gate_pos + dist * normal
+    return pre, post
