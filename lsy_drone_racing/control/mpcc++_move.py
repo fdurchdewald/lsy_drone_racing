@@ -15,7 +15,7 @@ import numpy as np
 import json
 import time
 from acados_template import AcadosModel, AcadosOcp, AcadosOcpSolver, AcadosSimSolver
-from casadi import MX, cos, sin, vertcat, if_else
+from casadi import MX, cos, sin, vertcat
 from scipy.interpolate import CubicSpline
 from scipy.spatial.transform import Rotation as R
 
@@ -28,29 +28,28 @@ if TYPE_CHECKING:
 log = get_logger()
 
 
-
 MPCC_CFG = dict(
     QC=10,
-    QC_GATE=50,
     QL=40,
     MU=10,
-    DVTHETA_MAX=1.6,
+    DVTHETA_MAX=1.0,
     N=20,
     T_HORIZON=0.7,
-    RAMP_TIME= 0.1,
 
-    BARRIER_WEIGHT = 50,
-
+    RAMP_TIME=1.8,
+    BW_RAMP=1,  # ramp time for barrier weight‚
+    BARRIER_WEIGHT = 100, 
+    
     TUNNEL_WIDTH = 0.4,  # nominal tunnel width
     TUNNEL_WIDTH_GATE = 0.15,  # nominal tunnel height
-    NARROW_DIST = 0.6,      # distance (m) at which tunnel starts to narrow
-    GATE_FLAT_DIST = 0.45,  # distance (m) from gate at which tunnel width remains at gate size
-
+    NARROW_DIST = 0.7,      # distance (m) at which tunnel starts to narrow
+    GATE_FLAT_DIST = 0.1,  # distance (m) from gate at which tunnel width remains at gate size
+    
     Q_OMEGA = 2,          # weight for rotational rates (roll, pitch, yaw)
-    R_VTHETA  = 1.0,        # quadratic penalty on vtheta
- 
-    REG_THRUST = 9.0e-3,
-    REG_INPUTS = 1.0e-1
+    R_VTHETA = 1.0,        # quadratic penalty on vtheta
+
+    REG_THRUST = 1.8e-2,
+    REG_INPUTS = 9.0e-2
 )
 
 
@@ -68,7 +67,7 @@ def export_quadrotor_ode_model() -> AcadosModel:
     params_roll_rate = [-3.960889336015948, 4.078293254657104]
     params_yaw_rate = [-0.005347588299390372, 0.0]
     params_acc = [20.907574256269616, 3.653687545690674]
-   
+
     """Model setting"""
     # define basic variables in state and input vector
     px = MX.sym("px")  # 0
@@ -98,8 +97,7 @@ def export_quadrotor_ode_model() -> AcadosModel:
     dvtheta_cmd = MX.sym("dvtheta_cmd")
 
 
-    N_PARAM = 18          # parameters up to w_bar
-    p = MX.sym("p", N_PARAM)
+    p = MX.sym("p", 18)
     px_r, py_r, pz_r = p[0], p[1], p[2]
     tx,   ty,   tz   = p[3], p[4], p[5]
     qc,   ql,   mu   = p[6], p[7], p[8]
@@ -107,7 +105,11 @@ def export_quadrotor_ode_model() -> AcadosModel:
     bx, by, bz = p[12], p[13], p[14]
     w_half     = p[15]
     h_half     = p[16]
-    w_bar      = p[17]
+    w_bar      = p[17] 
+
+
+
+
     # define state and input vector
     states = vertcat(
         px,
@@ -183,19 +185,19 @@ def export_quadrotor_ode_model() -> AcadosModel:
     alpha = 100.0
     bar = MX.log(1 + MX.exp(alpha*(g_n_pos))) + MX.log(1 + MX.exp(alpha*(g_n_neg))) \
         + MX.log(1 + MX.exp(alpha*(g_b_pos))) + MX.log(1 + MX.exp(alpha*(g_b_neg)))
-
-    R_input  = MPCC_CFG["REG_INPUTS"]
+    
+    R_input = MPCC_CFG["REG_INPUTS"]
     R_thrust = MPCC_CFG["REG_THRUST"]
 
     stage_cost = (
-        qc      * ec_sq
-      + ql      * el_sq
-      + Q_omega * omega_sq
-      + R_vth   * dvtheta_cmd**2
-      - mu      * vtheta
-      + R_input * (dr_cmd**2 + dp_cmd**2 + dy_cmd**2)
-      + R_thrust* (df_cmd**2)
-      + w_bar   * bar                     # Tunnel‑Barrier
+        qc * ec_sq
+        + ql * el_sq
+        + Q_omega * omega_sq          
+        + R_vth * dvtheta_cmd**2           
+        - mu * vtheta                
+        + R_input * (dr_cmd**2 + dp_cmd**2 + dy_cmd**2)
+        + R_thrust * (df_cmd**2)
+        + w_bar * bar
     )
 
 
@@ -237,9 +239,9 @@ def create_ocp_solver(
     ocp.cost.cost_type = "EXTERNAL"
 
     # Tell acados how many parameters each stage has
-    N_PARAM = 18
-    ocp.dims.np = N_PARAM
-    ocp.parameter_values = np.zeros(N_PARAM)
+    ocp.dims.np = 18
+    # default parameter vector (will be overwritten at run time)
+    ocp.parameter_values = np.zeros(18)
 
     # Set state constraints: collective thrust, Euler commands, and virtual progress speed
     ocp.constraints.idxbx = np.array([9, 10, 11, 12, 13, 15])
@@ -353,12 +355,7 @@ class MPController(Controller):
         self._update_tick_post_gate = False
         self._update_tick_pre_gate = False
         self._target_gate_pos = obs["gates_pos"][obs["target_gate"]]  # 3‑D np.array
-        # ------------------------------------------------------------------
-        #  Build initial waypoint list with dynamic gate‑dependent points
-        # ------------------------------------------------------------------
-        self.d_gate = 0.2  # distance before/after each gate [m]
-
-        # Compute approach and exit points for all gates
+        self.d_gate = 0.15
         gates_pos  = obs["gates_pos"]           # shape (4,3)
         gates_quat = obs["gates_quat"]          # shape (4,4)  (w,x,y,z) or (x,y,z,w) ?
         pre_post   = [pre_post_points(gates_pos[i], gates_quat[i], self.d_gate)
@@ -369,6 +366,7 @@ class MPController(Controller):
         pre_gate2, post_gate2 = pre_post[2]
         pre_gate3, post_gate3 = pre_post[3]
 
+        # Same waypoints as in the trajectory controller. Determined by trial and error.
         waypoints = np.array(
             [
                 [1.0896959, 1.4088244, MPCC_CFG["TUNNEL_WIDTH"] / 2],
@@ -438,16 +436,16 @@ class MPController(Controller):
         self.last_vtheta = 0
         self.config = config
         self.finished = False
+        self._gate_idx = 0
+        self._target = True
+        self.start = True
         self._ref_point = np.zeros(3)
         self.safe_pos = np.zeros(3)  
         self._planned_traj = np.zeros((self.N + 1, 3))
-        # --- Track waypoint changes to trigger Barrier‑Weight ramp ----------
+        self._pos_on_path = None  
         self._prev_waypoints = self._waypoints.copy()
-        # start barrier-weight ramp from simulation start
         self._bw_ramp_elapsed = 0.0
-        # --- path‑based gate tracking ----------------------------------
-        self._active_gate = 0        # start with the first gate
-        self._gate_s = {}            # arclength of each gate centre (filled in update_trajectorie)
+
         
         # Store predicted theta trajectory for reference in next iteration
         self._predicted_theta = np.zeros(self.N + 1)
@@ -471,7 +469,16 @@ class MPController(Controller):
         self._target_gate_pos = obs["gates_pos"][obs["target_gate"]]             # (für Debug/Plot)
         # flag to generate a straight tunnel to the gate once
         self._use_line_tunnel = False
+        # Placeholder for dynamic gate information (position + orientation quaternion)
+        self.gate_pos: np.ndarray | None = None
+        self.gate_quat: np.ndarray | None = None
+        # Gate opening size (full width/height) in metres
+        self.gate_width: float = 0.30   # reduced width of gate opening
+        self.gate_height: float = 0.30  # reduced height of gate opening
+        self.gate_depth: float = 0.3   # thickness along path/tangent (m)
         self._target_gate = 0
+        self._current_gate = obs["gates_pos"][obs["target_gate"]]
+        self._current_gate = np.array([0.0, 0.0, 0.0])  # Placeholder for current gate position
         self._planning_points = np.zeros((self.N + 1, 3))  # Store the planned trajectory points
 
     def compute_control(
@@ -493,35 +500,25 @@ class MPController(Controller):
         self._planning_points = []  # Reset the planning points for each step
         # reset per‑stage tunnel sizes (w, h) so get_tunnel_regions() can use them later
         self._stage_wh: list[tuple[float, float]] = []
-        # centres actually sent to the solver this step
-        self._stage_centres: list[np.ndarray] = []
         self._stage_nb: list[tuple[np.ndarray, np.ndarray]] = []
-        # smoothing interpolation setup
-        alpha_interp = 0.2  # smoothing factor: 0=no movement, 1=full shift
+        alpha_interp = 0.1  # smoothing factor: 0=no movement, 1=full shift
         prev_centres = getattr(self, '_prev_stage_centres', None)
+        self._stage_centres: list[np.ndarray] = []
 
-        # storage for parameter vectors per stage
-        self._all_p_vec = []
 
         if self._tick == 0:             # nur am allerersten Aufruf
             self._dump_initial_state(obs)
-
         self.update_trajectorie(obs["gates_pos"], obs["gates_quat"])
-        # Debug: print obstacle weight and radius configuration
-
-        # advance BW‑ramp timer (if active)
+        # Reset tunnel target to current gate for each call
+        self._target_gate_pos = obs["gates_pos"][int(obs["target_gate"])]
         if self._bw_ramp_elapsed is not None:
             self._bw_ramp_elapsed += self.dt
 
 
-        if self._update_tick_pre_gate is True:
-            self._save_tick_pre_gate = self._tick
-            self._update_tick_pre_gate = False
-        if self._update_tick_post_gate is True:
-            self._save_tick_post_gate = self._tick
-            self._update_tick_post_gate = False
 
-
+        if False:
+            print('Finished')
+            self.finished = True
 
         q = obs["quat"]
         r = R.from_quat(q)
@@ -537,40 +534,6 @@ class MPController(Controller):
         dists_vis = np.linalg.norm(traj_points_vis - pos, axis=1)
         idx_min_vis = int(np.argmin(dists_vis))
         s_cur = self.vis_s[idx_min_vis]             # arclength of closest point
-        # current path tangent (unit vector) at s_cur
-        tangent_cur = unit(self.pos_on_path(s_cur + 0.001) - self.pos_on_path(s_cur))
-        # ------------------------------------------------------------
-        # Switch to next gate only when:
-        #  a) path‑arclength already beyond the centre of current gate
-        #  b) drone is *ahead* of the next gate along current path tangent
-        #  c) distance to next gate is small enough
-        #  d) tangent is reasonably aligned towards next gate
-        #
-        if self._active_gate < max(self._gate_s.keys()):
-            next_gate = self._active_gate + 1
-
-            # a) hinter altem Gate?
-            if s_cur > self._gate_s[self._active_gate]:
-
-                pos_gate   = obs["gates_pos"][next_gate]
-                vec_gate   = pos_gate - pos                     # Richtung Gate
-                dist_gate  = np.linalg.norm(vec_gate)
-
-                # b) liegt Gate in Verlängerung der Tangente (vorwärts)?
-                ahead = np.dot(vec_gate, tangent_cur) > 0.0     # >0 ⇒ Gate vor uns
-
-                # c) Distanzschwelle
-                near  = dist_gate < 1.0
-
-                # d) Winkel­ausrichtung
-                t_xy = tangent_cur[:2] / (np.linalg.norm(tangent_cur[:2]) + 1e-9)
-                v_xy = vec_gate[:2]   / (np.linalg.norm(vec_gate[:2])   + 1e-9)
-                align = np.dot(t_xy, v_xy)                       # cos(φ)
-
-                if ahead and near and align > 0.3:
-                    self._active_gate = next_gate
-        # aktualisiere Target‑Gate‑Pos
-        self._target_gate_pos = obs["gates_pos"][self._active_gate]
 
         
         xcurrent = np.zeros(16)
@@ -613,66 +576,42 @@ class MPController(Controller):
         
         # Standard tunnel selection for all stages; gate logic removed.
         for j in range(self.N):
-            # Debug: show current obstacle positions
 
             s_ref = theta_pred[j]
             pref = self.pos_on_path(s_ref)
             self._ref_point = pref
             pref_next = self.pos_on_path(s_ref + 0.001)
             tangent = unit(pref_next - pref)
-            # ------------------------------------------------------------
-            # Barrier‑Weight ramp based on elapsed time since WP change
-            # ------------------------------------------------------------
             if self._bw_ramp_elapsed is not None:
-                ramp = min(1.0, self._bw_ramp_elapsed / MPCC_CFG["RAMP_TIME"])
+                ramp = min(1.0, self._bw_ramp_elapsed / MPCC_CFG["BW_RAMP"])
                 bw_val = MPCC_CFG["BARRIER_WEIGHT"] * ramp**2
             else:
                 bw_val = MPCC_CFG["BARRIER_WEIGHT"]
+            # Compute Euclidean distance to gate centre for symmetric tunnel sizing
+            gate_pos = obs["gates_pos"][int(obs["target_gate"])]
+            dist_gate = np.linalg.norm(pref - gate_pos)
 
-            # ---------------------------------------------------------------
-            # Adaptive tunnel sizing: treat **before** and **after** gate
-            # separately, controlled by FRONT and BACK distances
-            # ---------------------------------------------------------------
+            # Base (far) and minimum (at‑gate) tunnel sizes
             w_far   = MPCC_CFG["TUNNEL_WIDTH"]
             h_far   = MPCC_CFG["TUNNEL_WIDTH"]
             w_gate  = MPCC_CFG["TUNNEL_WIDTH_GATE"]
             h_gate  = MPCC_CFG["TUNNEL_WIDTH_GATE"]
-            
-            # --- tunnel width logic before/after gate ------------------------
-            # Use *arclength* difference instead of projection to decide whether
-            # we are still inside the post‑gate buffer zone.  This is much more
-            # robust than the previous dot‑product test, because the path may
-            # bend just behind the gate.
-            s_gate  = self._gate_s[self._active_gate]        # centre of current gate
-            s_diff  = s_ref - s_gate                         # <0 before, >0 after
 
-            # check path orientation towards the gate (only relevant when before)
-            gate_vec      = self._target_gate_pos - pref
-            gate_unit     = unit(gate_vec)
-            align_tunnel  = float(np.dot(gate_unit, tangent))      # cos(angle)
-
-            gate_buffer = 0.2        # [m] distance AFTER gate to keep narrow tunnel
-
-            if s_diff < 0.0 and align_tunnel > 0.4:
-                # ---------- BEFORE gate ----------
-                d = -s_diff
-                flat  = MPCC_CFG["GATE_FLAT_DIST"]
-                ramp  = MPCC_CFG["NARROW_DIST"]
-                if d > ramp:
-                    w_stage, h_stage = w_far, h_far
-                elif d > flat:
-                    α = (d - flat) / (ramp - flat)
-                    w_stage = α * w_far + (1 - α) * w_gate
-                    h_stage = α * h_far + (1 - α) * h_gate
-                else:
-                    w_stage, h_stage = w_gate, h_gate
-
-            elif 0.0 <= s_diff <= gate_buffer:
-                # ---------- just AFTER gate (within buffer) ----------
-                w_stage, h_stage = w_gate, h_gate
+            flat_dist = MPCC_CFG["GATE_FLAT_DIST"]
+            narrow_dist = MPCC_CFG["NARROW_DIST"]
+            if dist_gate > narrow_dist:
+                # far from gate: full tunnel width
+                w_stage = w_far
+                h_stage = h_far
+            elif dist_gate > flat_dist:
+                # narrowing region: interpolate between wide and gate widths
+                ratio = (dist_gate - flat_dist) / (narrow_dist - flat_dist)
+                w_stage = ratio * w_far + (1.0 - ratio) * w_gate
+                h_stage = ratio * h_far + (1.0 - ratio) * h_gate
             else:
-                # ---------- far away from gate ----------
-                w_stage, h_stage = w_far, h_far
+                # within flat region near the gate: constant gate width
+                w_stage = w_gate
+                h_stage = h_gate
 
             # Compute tunnel orientation with the stage‑specific width/height
             c, n, b, w, h = tunnel_bounds(
@@ -681,6 +620,7 @@ class MPController(Controller):
                 w_nom=w_stage,
                 h_nom=h_stage
             )
+
             self._stage_nb.append((n, b))
             # Shift the reference centre laterally so that every obstacle is
             # at least (w_stage/2 + margin) away – without changing the tunnel width.
@@ -695,21 +635,11 @@ class MPController(Controller):
             self._stage_wh.append((w, h))
             self._stage_centres.append(smoothed_c)
 
-            # QC and QL weights: initial ramp at simulation start, then constant
-            if self._active_gate == 0:
-                self._update_tick_post_gate = True
-                self._update_tick_pre_gate = True
-                ramp = min(1.0, self._tick * self.dt / MPCC_CFG["RAMP_TIME"])
-                mu_val  = MPCC_CFG["MU"] * ramp if j < self.N else 0.0
-                qc_val  = MPCC_CFG["QC"] * (0.5 + 0.5 * ramp)
-                ql_val  = MPCC_CFG["QL"] * (0.5 + 0.5 * ramp)
-            else:
-                mu_val  = MPCC_CFG["MU"] if j < self.N else 0.0
-                qc_val  = MPCC_CFG["QC"]
-                ql_val  = MPCC_CFG["QL"]
-                self._update_tick_pre_gate = True
-                self.w_nom = MPCC_CFG["TUNNEL_WIDTH"]
-                self.h_nom = MPCC_CFG["TUNNEL_WIDTH"]
+            # Parameter ramp-up at start
+            ramp_start = min(1.0, self._tick * self.dt / MPCC_CFG["RAMP_TIME"])
+            qc_val = MPCC_CFG["QC"] * (0.5 + 0.5 * ramp_start)
+            ql_val = MPCC_CFG["QL"] * (0.5 + 0.5 * ramp_start)
+            mu_val = MPCC_CFG["MU"] * ramp_start
 
             p_vec = np.concatenate([
                 smoothed_c,
@@ -720,10 +650,7 @@ class MPController(Controller):
                 [w/2, h/2, bw_val]
             ])
             self.acados_ocp_solver.set(j, "p", p_vec)
-            self._all_p_vec.append(p_vec.copy())
             self._planning_points.append(smoothed_c)  # Store the planned trajectory points
-
-        # store centres for next iteration smoothing
         self._prev_stage_centres = list(self._stage_centres)
 
         self.acados_ocp_solver.options_set("qp_warm_start", 2)    # 2 = full
@@ -737,22 +664,18 @@ class MPController(Controller):
             self._dump_failure(status, tic, toc)
             return np.array([self.last_f_cmd, *self.last_rpy_cmd])
 
+
         x1 = self.acados_ocp_solver.get(1, "x")
         cmd = x1[10:14]
         self.last_theta = x1[14]
         self.last_vtheta = x1[15]
-
+  
         planned_traj = np.zeros((self.N + 1, 3))
         for j in range(self.N + 1):
             xj = self.acados_ocp_solver.get(j, "x")
             planned_traj[j] = xj[:3]   # first three state entries: px, py, pz
-
-        # avoid degenerate segments in draw_line visualization
-        for idx in range(planned_traj.shape[0]):
-            planned_traj[idx, 0] += idx * 1e-6
-
         self._planned_traj = planned_traj
-
+        
         return cmd
 
     def step_callback(
@@ -826,9 +749,9 @@ class MPController(Controller):
             regions.append(np.vstack((corner0, corner1, corner2, corner3)))
         return np.array(regions)
 
-    def get_waypoints(self) -> NDArray[np.floating]:
-        """Get the waypoints of the trajectory."""
-        return self._waypoints
+    # def get_waypoints(self) -> NDArray[np.floating]:
+    #     """Get the waypoints of the trajectory."""
+    #     return self._waypoints
     def get_planning_points(self) -> NDArray[np.floating]:
         """Get the reference points of the trajectory."""
         return self._planning_points
@@ -912,7 +835,6 @@ class MPController(Controller):
         self.traj_points = np.column_stack((cs_x(vis_s), cs_y(vis_s), cs_z(vis_s)))
 
 
-
     # get_gate_regions removed: no longer used.
 
 def tunnel_bounds(pos_on_path, s: float,
@@ -929,7 +851,7 @@ def tunnel_bounds(pos_on_path, s: float,
 
 def unit(v):
     n = np.linalg.norm(v)
-    return v / n if n > 1e-6 else np.array([1.0, 0.0, 0.0]) 
+    return v / n if n > 1e-6 else np.array([1.0, 0.0, 0.0])
 
 def pre_post_points(gate_pos: np.ndarray,
                     gate_quat: np.ndarray,
@@ -948,11 +870,12 @@ def pre_post_points(gate_pos: np.ndarray,
     post = gate_pos + dist * normal
     return pre, post
 
+
 def shrink_side_for_obstacles(pref: np.ndarray, n_vec: np.ndarray,
                               w_nom: float,              # ← keep this unchanged
                               obstacles: np.ndarray,
                               margin: float = 0.05,
-                              max_shift: float | None = None
+                              max_shift: float = 0.25,
                               ) -> tuple[np.ndarray, float]:
     """
     Move the tunnel centre sideways so that every obstacle in `obstacles`
