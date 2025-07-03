@@ -36,19 +36,20 @@ MPCC_CFG = dict(
     N=20,
     T_HORIZON=0.7,
 
+    ALPHA_INTERP=0.1,  # smoothing factor for tunnel width interpolation: 0=no movement, 1=full shift
+
     RAMP_TIME=1.8,
     BW_RAMP=1,  # ramp time for barrier weight‚
-    BARRIER_WEIGHT = 100, 
+    BARRIER_WEIGHT = 10, 
     
     TUNNEL_WIDTH = 0.4,  # nominal tunnel width
     TUNNEL_WIDTH_GATE = 0.15,  # nominal tunnel height
     NARROW_DIST = 0.7,      # distance (m) at which tunnel starts to narrow
     GATE_FLAT_DIST = 0.1,  # distance (m) from gate at which tunnel width remains at gate size
     
-    Q_OMEGA = 2,          # weight for rotational rates (roll, pitch, yaw)
     R_VTHETA = 1.0,        # quadratic penalty on vtheta
 
-    REG_THRUST = 1.8e-2,
+    REG_THRUST = 1.0e-4,
     REG_INPUTS = 9.0e-2
 )
 
@@ -167,7 +168,6 @@ def export_quadrotor_ode_model() -> AcadosModel:
     ec_sq = cont_err.T @ cont_err  # ‖e_c‖²
     el_sq = lag_err**2  # e_l²
     # --- Extended MPCC++ Cost --------------------------------------------------
-    Q_omega = MPCC_CFG["Q_OMEGA"]
     R_vth   = MPCC_CFG["R_VTHETA"]
     
     n_vec = vertcat(nx, ny, nz)
@@ -179,7 +179,6 @@ def export_quadrotor_ode_model() -> AcadosModel:
     g_b_neg = -b_vec.T @ delta - h_half
     
     
-    omega_sq = roll**2 + pitch**2 + yaw**2        
     
     
     alpha = 100.0
@@ -192,7 +191,6 @@ def export_quadrotor_ode_model() -> AcadosModel:
     stage_cost = (
         qc * ec_sq
         + ql * el_sq
-        + Q_omega * omega_sq          
         + R_vth * dvtheta_cmd**2           
         - mu * vtheta                
         + R_input * (dr_cmd**2 + dp_cmd**2 + dy_cmd**2)
@@ -243,31 +241,10 @@ def create_ocp_solver(
     # default parameter vector (will be overwritten at run time)
     ocp.parameter_values = np.zeros(18)
 
-    # Set state constraints: collective thrust, Euler commands, and virtual progress speed
-    ocp.constraints.idxbx = np.array([9, 10, 11, 12, 13, 15])
-
-    ocp.constraints.lbx = np.array([
-        0.1,    # f_collective
-        0.1,    # f_collective_cmd
-        -1.57,  # r_cmd
-        -1.57,  # p_cmd
-        -1.57,  # y_cmd
-        0.0,    # vtheta
-    ])
-    ocp.constraints.ubx = np.array([
-        0.55,   # f_collective
-        0.55,   # f_collective_cmd
-        1.0,    # r_cmd
-        1.0,    # p_cmd
-        1.0,    # y_cmd
-        MPCC_CFG["DVTHETA_MAX"],  # vtheta
-    ])
-
-    #losere box constraints:
 
     ocp.constraints.idxbx = np.array([9, 10, 11, 12, 13, 15])
 
-    lbx = np.array([0.1, 0.1, -1.3, -1.3, -1.3, 0.0])
+    lbx = np.array([0.1, 0.1, -1.3, -1.3, -1.3, -MPCC_CFG["DVTHETA_MAX"]])
     ubx = np.array([0.65, 0.65,  1.3,  1.3,  1.3, MPCC_CFG["DVTHETA_MAX"]])
     ocp.constraints.lbx = lbx
     ocp.constraints.ubx = ubx
@@ -338,7 +315,7 @@ def create_ocp_solver(
 class MPController(Controller):
     """Example of a MPC using the collective thrust and attitude interface."""
 
-    def __init__(self, obs: dict[str, NDArray[np.floating]], info: dict, config: dict):
+    def __init__(self, obs: dict[str, NDArray[np.floating]], info: dict, config: dict, PARAM_DICT: dict[str, float] | None = None):
         """Initialize the attitude controller.
 
         Args:
@@ -348,6 +325,8 @@ class MPController(Controller):
             config: The configuration of the environment.
         """  
         super().__init__(obs, info, config)
+        if PARAM_DICT is not None:
+            MPCC_CFG.update(PARAM_DICT)
         self.freq = config.env.freq
         self._tick = 0
         self._save_tick_pre_gate = 0
@@ -481,6 +460,8 @@ class MPController(Controller):
         self._current_gate = np.array([0.0, 0.0, 0.0])  # Placeholder for current gate position
         self._planning_points = np.zeros((self.N + 1, 3))  # Store the planned trajectory points
 
+        self._init_obs = np.asarray(obs["obstacles_pos"])
+
     def compute_control(
         self, obs: dict[str, NDArray[np.floating]], info: dict | None = None
     ) -> NDArray[np.floating]:
@@ -501,7 +482,7 @@ class MPController(Controller):
         # reset per‑stage tunnel sizes (w, h) so get_tunnel_regions() can use them later
         self._stage_wh: list[tuple[float, float]] = []
         self._stage_nb: list[tuple[np.ndarray, np.ndarray]] = []
-        alpha_interp = 0.1  # smoothing factor: 0=no movement, 1=full shift
+        alpha_interp = MPCC_CFG['ALPHA_INTERP']  # smoothing factor: 0=no movement, 1=full shift
         prev_centres = getattr(self, '_prev_stage_centres', None)
         self._stage_centres: list[np.ndarray] = []
 
@@ -564,6 +545,7 @@ class MPController(Controller):
 
         if self._tick % 20 == 0:
             print(f"θ={self.last_theta:6.2f}  vθ={self.last_vtheta:4.2f}")
+            True
 
         # Store predicted theta trajectory so that get_tunnel_regions()
         # can draw the stage‑wise tunnel rectangles for the next visualization
@@ -624,8 +606,12 @@ class MPController(Controller):
             self._stage_nb.append((n, b))
             # Shift the reference centre laterally so that every obstacle is
             # at least (w_stage/2 + margin) away – without changing the tunnel width.
-            obs_arr = np.asarray(obs["obstacles_pos"])
-            pref_shift, _ = shrink_side_for_obstacles(pref, n, w_stage, obs_arr, margin=0.14)
+            curent_obs = np.asarray(obs["obstacles_pos"])
+            init_obs = self._init_obs
+            obs_arr = np.array([o for o in curent_obs if not any(np.allclose(o, io) for io in init_obs)])
+
+            pref_shift = move_for_obstacles(pref, w_stage, obs_arr, n, margin=0.25)
+
             # apply interpolation to avoid jumps
             if prev_centres is not None and len(prev_centres) > j:
                 prev_c = prev_centres[j]
@@ -634,6 +620,7 @@ class MPController(Controller):
             smoothed_c = prev_c + alpha_interp * (pref_shift - prev_c)
             self._stage_wh.append((w, h))
             self._stage_centres.append(smoothed_c)
+
 
             # Parameter ramp-up at start
             ramp_start = min(1.0, self._tick * self.dt / MPCC_CFG["RAMP_TIME"])
@@ -666,6 +653,12 @@ class MPController(Controller):
 
 
         x1 = self.acados_ocp_solver.get(1, "x")
+        u1 = self.acados_ocp_solver.get(1, "u")
+        
+        # input_names = ["df_cmd", "dr_cmd", "dp_cmd", "dy_cmd", "dv_theta_cmd"]
+        # for name, value in zip(input_names, u1):
+        #     print(f"Input {name}: {value:.7f}")
+
         cmd = x1[10:14]
         self.last_theta = x1[14]
         self.last_vtheta = x1[15]
@@ -757,15 +750,16 @@ class MPController(Controller):
         return self._planning_points
     
     def _dump_initial_state(self, obs):
-        log.info("===== INITIAL STATE DUMP =====")
-        log.debug(json.dumps({
-            "xcurrent": obs["pos"].tolist() + obs["vel"].tolist(),
-            "params":   MPCC_CFG,
-            "box_lims": {
-                "vtheta_max": float(self.ocp.constraints.ubx[-1]),
-                "dvtheta_max": float(self.ocp.constraints.ubu[0]),
-            }
-        }, indent=2))
+        # log.info("===== INITIAL STATE DUMP =====")
+        # log.debug(json.dumps({
+        #     "xcurrent": obs["pos"].tolist() + obs["vel"].tolist(),
+        #     "params":   MPCC_CFG,
+        #     "box_lims": {
+        #         "vtheta_max": float(self.ocp.constraints.ubx[-1]),
+        #         "dvtheta_max": float(self.ocp.constraints.ubu[0]),
+        #     }
+        # }, indent=2))
+        True
 
     def _dump_failure(self, status, tic, toc):
         it_tot = int(self.acados_ocp_solver.get_stats("sqp_iter"))
@@ -781,8 +775,8 @@ class MPController(Controller):
             else:                                     # Fallback
                 kkt = float(self.acados_ocp_solver.get_stats("res_stat_all")[0])
 
-        log.error(f"Solver failed | status={status} | SQP it={it_tot} "
-                f"| KKT={kkt:.2e} | t={toc-tic:.3f}s")
+        # log.error(f"Solver failed | status={status} | SQP it={it_tot} "
+        #         f"| KKT={kkt:.2e} | t={toc-tic:.3f}s")
 
         # ---- Dump ---------------------------------------------------------
         x_seq, u_seq = [], []
@@ -801,7 +795,7 @@ class MPController(Controller):
             "x0": x_seq[0] if x_seq else None,
             "x_seq": x_seq, "u_seq": u_seq,
         }, indent=1))
-        log.error(f"Dump saved → {path}")
+        #log.error(f"Dump saved → {path}")
 
     def update_trajectorie(self, gate_pos: NDArray[np.floating], gate_quat: NDArray[np.floating]):
         for i, (pos, quat) in enumerate(zip(gate_pos, gate_quat)):
@@ -870,41 +864,36 @@ def pre_post_points(gate_pos: np.ndarray,
     post = gate_pos + dist * normal
     return pre, post
 
-
-def shrink_side_for_obstacles(pref: np.ndarray, n_vec: np.ndarray,
-                              w_nom: float,              # ← keep this unchanged
-                              obstacles: np.ndarray,
-                              margin: float = 0.05,
-                              max_shift: float = 0.25,
-                              ) -> tuple[np.ndarray, float]:
+def move_for_obstacles(
+    pref: np.ndarray,
+    w_nom: float,
+    obstacles: np.ndarray,
+    n_vec: np.ndarray = None,
+    margin: float = 0.05,
+    max_shift: float = 0.25,
+) -> np.ndarray:
     """
-    Move the tunnel centre sideways so that every obstacle in `obstacles`
+    Move the tunnel centre so that every obstacle in `obstacles`
     is at least `margin` away **inside** the nominal full width `w_nom`.
+    The check is performed along the normal direction `n_vec` if provided,
+    but the shift is still along the direction from pref to obs (in xy).
     Returns
         c_shifted : new centre (3,)
-        w_nom     : unchanged full width (passed through for convenience)
     """
-    # --- new implementation: only move if the obstacle actually violates the
-    #     clearance  (‖d‖ < w_half + margin).  Keep the tunnel width unchanged.
     if obstacles.size == 0:
-        return pref, w_nom
-    thr = w_nom / 2.0 + margin
-    # compute required lateral shift so that any obstacle closer than thr is pushed out
-    shift_pos = 0.0   # positive shift along +n_vec
-    shift_neg = 0.0   # negative shift along -n_vec
+        return pref
+
+    c_shifted = pref.copy()
+
     for obs in obstacles:
-        diff = obs[:2] - pref[:2]
-        dist2d = np.linalg.norm(diff)
-        if dist2d < thr:
-            d = float(n_vec[:2].dot(diff))      # signed lateral offset
-            required = thr - abs(d)
-            if d > 0:
-                shift_neg = min(shift_neg, -required)
-            else:
-                shift_pos = max(shift_pos, required)
-    total_shift = shift_pos + shift_neg
-    # clamp optional maximum shift
-    if max_shift is not None:
-        total_shift = float(np.clip(total_shift, -max_shift, max_shift))
-    # apply shift along n_vec
-    return pref + total_shift * n_vec, w_nom
+        # Project obstacle onto normal direction if n_vec is given, else use xy distance
+        obs_vec = obs[:2] - c_shifted[:2]
+        dist = np.linalg.norm(obs_vec)
+        thr = w_nom / 2.0 + margin
+        if dist < thr:
+            direction_xy = (c_shifted[:2] - obs[:2]) / (dist + 1e-9)
+            required_shift = thr - dist
+            shift = np.clip(required_shift, 0, max_shift)
+            c_shifted[:2] = c_shifted[:2] + shift * direction_xy
+
+    return c_shifted
