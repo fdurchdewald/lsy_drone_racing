@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 class Controller(ABC):
     """Base class for controller implementations."""
 
-    def __init__(self, obs: dict[str, NDArray[np.floating]], info: dict, config: dict):
+    def __init__(self, obs: dict[str, NDArray[np.floating]], info: dict, config: dict, PARAM_DICT: dict[str, float] | None = None):
         """Initialization of the controller.
 
         Instructions:
