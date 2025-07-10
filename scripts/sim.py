@@ -126,9 +126,9 @@ def simulate(
                             min_size=2.0, max_size=2.0)
                     region = controller.get_tunnel_regions()
                     draw_tunnel_regions_from_corners(env, region)
-                    planning_points = controller.get_planning_points()
-                    # for point in planning_points:
-                    #     draw_point(env, point, rgba=np.array([1.0, 0.5, 0.0, 1.0]))
+                    planning_points = controller.get_waypoints()
+                    for point in planning_points:
+                        draw_point(env, point, rgba=np.array([1.0, 0.5, 0.0, 1.0]))
                     #point = np.array([-0.5, 0.5, 1.4])
                     #draw_cylinder_obstacle(env, point)
 
