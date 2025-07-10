@@ -32,11 +32,11 @@ MPCC_CFG = dict(
     QC=10,
     QL=40,
     MU=10,
-    DVTHETA_MAX=1.0,
+    DVTHETA_MAX=1.6,
     N=20,
     T_HORIZON=0.7,
 
-    ALPHA_INTERP=0.05,  # smoothing factor for tunnel width interpolation: 0=no movement, 1=full shift
+    ALPHA_INTERP=0.2,  # smoothing factor for tunnel width interpolation: 0=no movement, 1=full shift
 
     RAMP_TIME=1.8,
     BW_RAMP=1,  # ramp time for barrier weight‚
@@ -52,7 +52,7 @@ MPCC_CFG = dict(
     REG_THRUST = 1.0e-4,
     REG_INPUTS = 9.0e-2,
 
-    OBSTACLE_RADIUS = [0.1, 0.2, 0.1, 0.1],
+    OBSTACLE_RADIUS = [0.1, 0.22, 0.1, 0.1],
 )
 
 
@@ -545,9 +545,9 @@ class MPController(Controller):
             theta_pred = self.last_theta + self.last_vtheta * np.linspace(0.0, self.T_HORIZON, self.N + 1)
             theta_pred[0] = s_cur
 
-        if self._tick % 20 == 0:
-            print(f"θ={self.last_theta:6.2f}  vθ={self.last_vtheta:4.2f}")
-            True
+        # if self._tick % 20 == 0:
+        #     print(f"θ={self.last_theta:6.2f}  vθ={self.last_vtheta:4.2f}")
+        #     True
 
         # Store predicted theta trajectory so that get_tunnel_regions()
         # can draw the stage‑wise tunnel rectangles for the next visualization
@@ -907,47 +907,80 @@ def shrink_side_for_obstacles(
     n_vec: np.ndarray,
     w_nom: float,
     obstacles: np.ndarray,
-    max_shift: float | None = None
+    *,
+    look_ahead: float = 0.60  ,     # wie weit „vorne“ ein Hindernis (entlang t) noch gilt
+    look_behind: float = 0.18,    # wie weit „hinten“ es noch gilt
+    max_shift: float | None = None,
 ) -> tuple[np.ndarray, float]:
     """
-    Verschiebt den Tunnelmittelpunkt in XY so, dass jeder Hindernis-Kreis
-    (Mittelpunkt in obstacles, Radius r_obs) mindestens `margin` vom Tunnelrand
-    entfernt ist. Z-Koordinate bleibt gleich.
+    Verschiebt den Tunnel-Mittelpunkt seitlich (XY), sodass jeder Hindernis-Kreis
+    mindestens w_nom/2 Abstand von der Tunnelwand hat **und** der Versatz
+    sofort zurückgeht, sobald wir das Hindernis hinter uns lassen.
+
+    Args
+    ----
+    pref : (3,) aktueller Tunnel-Mittelpunkt
+    n_vec: (3,) Einheitsvektor seitlich (Breite)
+    w_nom: nominale Tunnelbreite (m)
+    obstacles: (K,3) Hindernismittelpunkte (Z-Koord. wird ignoriert)
+    look_ahead : Positives Fenster (m) vor der Drohne, in dem Hindernisse
+                 berücksichtigt werden.
+    look_behind: Kleines Fenster (m) hinter der Drohne, in dem Hindernisse
+                 noch berücksichtigt werden (Hysterese).
+    max_shift  : optionale Begrenzung des Gesamt-Shifts (m)
+
+    Returns
+    -------
+    new_center : (3,) verschobener Tunnel-Mittelpunkt
+    w_nom      : unveränderte Tunnelbreite (wird für Call-Site-Kompatibilität
+                 unverändert zurückgegeben)
     """
-    # 1) halbe Tunnel-Breite
+    # ---------------- Basis-Vorbereitung -------------------------------
     w_half = w_nom / 2.0
-    # 2) auf XY reduzieren und Normalenvektor normieren
     pref_xy = pref[:2]
+
     n_xy = n_vec[:2]
     norm_n = np.linalg.norm(n_xy)
-    if norm_n < 1e-9:
+    if norm_n < 1e-9:                       # degenerierter Vektor
         return pref.copy(), w_nom
     n_xy /= norm_n
+
+    # Tangentialer Vektor in der XY-Ebene (rechtshändig zu n_xy)
+    t_xy = np.array([n_xy[1], -n_xy[0]])
+
+    # ---------------- Shift-Berechnung ---------------------------------
     shift = 0.0
+    radii = MPCC_CFG.get("OBSTACLE_RADIUS", [])
+    default_r = 0.10                       # fallback, falls Liste zu kurz
+
     for i, p in enumerate(obstacles):
-        # skip placeholder zeros
-        if p[0] == 0 and p[1] == 0 and p[2] == 0:
+        # Platzhalter-Einträge überspringen
+        if np.allclose(p, 0.0):
             continue
-        # 3) lateraler Abstand des Objekts von der Tunnel-Mittelachse
+
         p_xy = p[:2]
-        d = float(n_xy @ (p_xy - pref_xy))
+        r_obs = radii[i] if i < len(radii) else default_r
 
-        # 4) effektiver Abstand abzüglich Kreis-Radius
-        #    wir wollen: |d| - r_obs >= w_half - margin
-        eff_d = abs(d) - MPCC_CFG["OBSTACLE_RADIUS"][i]
+        # Längsabstand (Vorzeichen: >0 vor uns, <0 hinter uns)
+        d_long = float(t_xy @ (p_xy - pref_xy))
+        if d_long >  look_ahead + r_obs:
+            continue                       # noch zu weit vorne
+        if d_long < -look_behind - r_obs:
+            continue                       # schon lange überholt
 
-        # 5) prüfen, ob der Kreis in den inneren Bereich eindringt
-        if eff_d < w_half:
-            # wie weit fehlt noch, um auf genau threshold zu kommen?
+        # Lateraler Abstand
+        d_lat = float(n_xy @ (p_xy - pref_xy))
+        eff_d = abs(d_lat) - r_obs         # „Rand-zu-Rand“-Abstand
+
+        if eff_d < w_half:                 # Kreis schneidet inneren Bereich
             needed_shift = w_half - eff_d
-            # Vorzeichen umkehren: d>0 → Hindernis rechts → Tunnel nach links
-            shift += -np.sign(d) * needed_shift
+            # d_lat >0 → Hindernis rechts → Tunnel nach links (neg. n-Richtung)
+            shift += -np.sign(d_lat) * needed_shift
 
-    # 6) optional: Begrenzung
+    # -------------- Nachbearbeitung ------------------------------------
     if max_shift is not None:
         shift = np.clip(shift, -max_shift, max_shift)
 
-    # 7) neuen Mittelpunkt berechnen (nur in XY)
     new_pref_xy = pref_xy + shift * n_xy
     new_center = np.array([new_pref_xy[0], new_pref_xy[1], pref[2]])
 
