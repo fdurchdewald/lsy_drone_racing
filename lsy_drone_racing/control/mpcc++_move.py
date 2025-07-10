@@ -36,7 +36,7 @@ MPCC_CFG = dict(
     N=20,
     T_HORIZON=0.7,
 
-    ALPHA_INTERP=0.1,  # smoothing factor for tunnel width interpolation: 0=no movement, 1=full shift
+    ALPHA_INTERP=0.05,  # smoothing factor for tunnel width interpolation: 0=no movement, 1=full shift
 
     RAMP_TIME=1.8,
     BW_RAMP=1,  # ramp time for barrier weight‚
@@ -50,7 +50,9 @@ MPCC_CFG = dict(
     R_VTHETA = 1.0,        # quadratic penalty on vtheta
 
     REG_THRUST = 1.0e-4,
-    REG_INPUTS = 9.0e-2
+    REG_INPUTS = 9.0e-2,
+
+    OBSTACLE_RADIUS = [0.1, 0.2, 0.1, 0.1],
 )
 
 
@@ -608,9 +610,11 @@ class MPController(Controller):
             # at least (w_stage/2 + margin) away – without changing the tunnel width.
             curent_obs = np.asarray(obs["obstacles_pos"])
             init_obs = self._init_obs
-            obs_arr = np.array([o for o in curent_obs if not any(np.allclose(o, io) for io in init_obs)])
+            obs_arr = np.zeros_like(init_obs)
+            mask = np.array([not np.allclose(cur, init) for cur, init in zip(curent_obs, init_obs)])
+            obs_arr[mask] = curent_obs[mask]
 
-            pref_shift, _ = shrink_side_for_obstacles(pref,n, w_stage, obs_arr, margin=0.4)
+            pref_shift, _ = shrink_side_for_obstacles(pref,n, w_stage, obs_arr)
 
             # apply interpolation to avoid jumps
             if prev_centres is not None and len(prev_centres) > j:
@@ -898,40 +902,53 @@ def move_for_obstacles(
 
     return c_shifted
 
-def shrink_side_for_obstacles(pref: np.ndarray, n_vec: np.ndarray,
-                              w_nom: float,              # ← keep this unchanged
-                              obstacles: np.ndarray,
-                              margin: float = 0.05,
-                              max_shift: float | None = None
-                              ) -> tuple[np.ndarray, float]:
+def shrink_side_for_obstacles(
+    pref: np.ndarray,
+    n_vec: np.ndarray,
+    w_nom: float,
+    obstacles: np.ndarray,
+    max_shift: float | None = None
+) -> tuple[np.ndarray, float]:
     """
-    Move the tunnel centre sideways so that every obstacle in `obstacles`
-    is at least `margin` away **inside** the nominal full width `w_nom`.
-    Returns
-        c_shifted : new centre (3,)
-        w_nom     : unchanged full width (passed through for convenience)
+    Verschiebt den Tunnelmittelpunkt in XY so, dass jeder Hindernis-Kreis
+    (Mittelpunkt in obstacles, Radius r_obs) mindestens `margin` vom Tunnelrand
+    entfernt ist. Z-Koordinate bleibt gleich.
     """
-    if obstacles.size == 0:
-        return pref, w_nom
-
+    # 1) halbe Tunnel-Breite
     w_half = w_nom / 2.0
+    # 2) auf XY reduzieren und Normalenvektor normieren
+    pref_xy = pref[:2]
+    n_xy = n_vec[:2]
+    norm_n = np.linalg.norm(n_xy)
+    if norm_n < 1e-9:
+        return pref.copy(), w_nom
+    n_xy /= norm_n
     shift = 0.0
-    for p in obstacles:
-        d = float(n_vec @ (p - pref))           # signed lateral offset
-        if abs(d) < w_half:                     # obstacle inside tunnel slab
-            free = abs(d) - margin
-            if free < 0.0:
-                free = 0.0
-            if d > 0:                           # post on +n side  → shrink right
-                needed_shift = w_half - free
-                shift -= needed_shift
-            else:                               # post on -n side  → shrink left
-                needed_shift = w_half - free
-                shift += needed_shift
+    for i, p in enumerate(obstacles):
+        # skip placeholder zeros
+        if p[0] == 0 and p[1] == 0 and p[2] == 0:
+            continue
+        # 3) lateraler Abstand des Objekts von der Tunnel-Mittelachse
+        p_xy = p[:2]
+        d = float(n_xy @ (p_xy - pref_xy))
 
+        # 4) effektiver Abstand abzüglich Kreis-Radius
+        #    wir wollen: |d| - r_obs >= w_half - margin
+        eff_d = abs(d) - MPCC_CFG["OBSTACLE_RADIUS"][i]
 
-    # optional safety clamp
+        # 5) prüfen, ob der Kreis in den inneren Bereich eindringt
+        if eff_d < w_half:
+            # wie weit fehlt noch, um auf genau threshold zu kommen?
+            needed_shift = w_half - eff_d
+            # Vorzeichen umkehren: d>0 → Hindernis rechts → Tunnel nach links
+            shift += -np.sign(d) * needed_shift
+
+    # 6) optional: Begrenzung
     if max_shift is not None:
         shift = np.clip(shift, -max_shift, max_shift)
 
-    return pref + shift * n_vec, w_nom
+    # 7) neuen Mittelpunkt berechnen (nur in XY)
+    new_pref_xy = pref_xy + shift * n_xy
+    new_center = np.array([new_pref_xy[0], new_pref_xy[1], pref[2]])
+
+    return new_center, w_nom
