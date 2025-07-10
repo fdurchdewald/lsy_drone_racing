@@ -544,9 +544,9 @@ class MPController(Controller):
             theta_pred = self.last_theta + self.last_vtheta * np.linspace(0.0, self.T_HORIZON, self.N + 1)
             theta_pred[0] = s_cur
 
-        if self._tick % 20 == 0:
-            print(f"θ={self.last_theta:6.2f}  vθ={self.last_vtheta:4.2f}")
-            True
+        # if self._tick % 20 == 0:
+        #     print(f"θ={self.last_theta:6.2f}  vθ={self.last_vtheta:4.2f}")
+        #     True
 
         # Store predicted theta trajectory so that get_tunnel_regions()
         # can draw the stage‑wise tunnel rectangles for the next visualization
