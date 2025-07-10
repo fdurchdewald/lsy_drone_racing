@@ -38,7 +38,7 @@ MPCC_CFG = dict(
 
     ALPHA_INTERP=0.2,  # smoothing factor for tunnel width interpolation: 0=no movement, 1=full shift
 
-    RAMP_TIME=1.8,
+    RAMP_TIME=0.7,
     BW_RAMP=0.3,  # ramp time for barrier weight‚
     BARRIER_WEIGHT = 10, 
     
@@ -49,10 +49,10 @@ MPCC_CFG = dict(
     
     R_VTHETA = 1.0,        # quadratic penalty on vtheta
 
-    REG_THRUST = 1.0e-4,
-    REG_INPUTS = 9.0e-2,
+    REG_THRUST = 1.0e-2,
+    REG_INPUTS = 1.0e-1,
 
-    OBSTACLE_RADIUS = [0.13, 0.22, 0.1, 0.1],
+    OBSTACLE_RADIUS = [0.13, 0.23, 0.1, 0.1],
 )
 
 
@@ -910,7 +910,7 @@ def shrink_side_for_obstacles(
     w_nom: float,
     obstacles: np.ndarray,
     *,
-    look_ahead: float = 0.60  ,     # wie weit „vorne“ ein Hindernis (entlang t) noch gilt
+    look_ahead: float = 0.40  ,     # wie weit „vorne“ ein Hindernis (entlang t) noch gilt
     look_behind: float = 0.18,    # wie weit „hinten“ es noch gilt
     max_shift: float | None = None,
 ) -> tuple[np.ndarray, float]:
