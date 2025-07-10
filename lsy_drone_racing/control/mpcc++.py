@@ -44,9 +44,8 @@ MPCC_CFG = dict(
     TUNNEL_WIDTH_GATE = 0.15,  # nominal tunnel height
     NARROW_DIST = 0.7,      # distance (m) at which tunnel starts to narrow
     GATE_FLAT_DIST = 0.2,  # distance (m) from gate at which tunnel width remains at gate size
-    Q_OMEGA = 2,          # weight for rotational rates (roll, pitch, yaw)
+    Q_OMEGA = 0,          # weight for rotational rates (roll, pitch, yaw)
     R_VTHETA = 1.0,        # quadratic penalty on vtheta
-
 
     REG_THRUST = 1.8e-2,
     REG_INPUTS = 1.0e-1

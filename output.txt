@@ -1,0 +1,166 @@
+θ=  0.30  vθ=0.00
+θ=  0.69  vθ=1.11
+θ=  2.53  vθ=1.90
+θ=  4.55  vθ=1.90
+0
+θ=  6.58  vθ=1.90
+θ=  8.61  vθ=1.90
+1
+θ= 10.63  vθ=1.90
+θ= 12.66  vθ=1.90
+θ= 14.69  vθ=1.90
+θ= 16.71  vθ=1.90
+2
+θ= 18.74  vθ=1.90
+θ= 20.77  vθ=1.90
+θ= 22.79  vθ=1.90
+θ= 24.82  vθ=1.90
+3
+θ= 26.85  vθ=1.90
+True
+False
+θ=  0.30  vθ=0.00
+θ=  0.69  vθ=1.11
+θ=  2.53  vθ=1.90
+θ=  4.55  vθ=1.90
+0
+θ=  6.58  vθ=1.90
+θ=  8.61  vθ=1.90
+θ= 10.63  vθ=1.90
+1
+θ= 12.66  vθ=1.90
+θ= 14.69  vθ=1.90
+θ= 16.71  vθ=1.90
+θ= 18.74  vθ=1.90
+2
+θ= 20.77  vθ=1.90
+θ= 22.79  vθ=1.90
+θ= 24.82  vθ=1.90
+θ= 26.85  vθ=1.90
+3
+True
+False
+θ=  0.30  vθ=0.00
+θ=  0.69  vθ=1.11
+θ=  2.53  vθ=1.90
+θ=  4.55  vθ=1.90
+0
+θ=  6.58  vθ=1.90
+θ=  8.61  vθ=1.90
+θ= 10.63  vθ=1.90
+1
+θ= 12.66  vθ=1.90
+θ= 14.69  vθ=1.90
+θ= 16.71  vθ=1.90
+θ= 18.74  vθ=1.90
+2
+θ= 20.77  vθ=1.90
+θ= 22.79  vθ=1.90
+θ= 24.82  vθ=1.90
+3
+θ= 26.85  vθ=1.90
+True
+False
+θ=  0.30  vθ=0.00
+θ=  0.69  vθ=1.11
+θ=  2.53  vθ=1.90
+θ=  4.55  vθ=1.90
+0
+θ=  6.58  vθ=1.90
+1
+θ=  8.61  vθ=1.90
+θ= 10.63  vθ=1.90
+θ= 12.66  vθ=1.90
+θ= 14.69  vθ=1.90
+θ= 16.71  vθ=1.90
+2
+θ= 18.74  vθ=1.90
+True
+False
+θ=  0.30  vθ=0.00
+θ=  0.69  vθ=1.11
+θ=  2.53  vθ=1.90
+θ=  4.55  vθ=1.90
+0
+θ=  6.58  vθ=1.90
+True
+False
+θ=  0.30  vθ=0.00
+θ=  0.69  vθ=1.11
+θ=  2.53  vθ=1.90
+θ=  4.55  vθ=1.90
+0
+θ=  6.58  vθ=1.90
+θ=  8.61  vθ=1.90
+1
+θ= 10.63  vθ=1.90
+θ= 12.66  vθ=1.90
+θ= 14.69  vθ=1.90
+θ= 16.71  vθ=1.90
+θ= 18.74  vθ=1.90
+2
+θ= 20.77  vθ=1.90
+θ= 22.79  vθ=1.90
+θ= 24.82  vθ=1.90
+3
+True
+False
+θ=  0.30  vθ=0.00
+θ=  0.69  vθ=1.11
+θ=  2.53  vθ=1.90
+θ=  4.55  vθ=1.90
+0
+θ=  6.58  vθ=1.90
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+θ=  7.80  vθ=1.90
+[acados] Abbruch mit Status 2
+θ=  9.72  vθ=1.90
+1
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+True
+False
+θ=  0.30  vθ=0.00
+θ=  0.69  vθ=1.11
+θ=  2.53  vθ=1.90
+θ=  4.55  vθ=1.90
+θ=  6.58  vθ=1.90
+0
+θ=  8.61  vθ=1.90
+θ= 10.63  vθ=1.90
+1
+θ= 12.66  vθ=1.90
+θ= 14.69  vθ=1.90
+[acados] Abbruch mit Status 2
+θ= 16.61  vθ=1.90
+2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+θ= 17.63  vθ=1.90
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2
+[acados] Abbruch mit Status 2

@@ -1,0 +1,242 @@
+2025-06-25 15:36:41,500 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-25 15:36:41,501 | DEBUG   | {
+  "xcurrent": [
+    1.089695930480957,
+    1.4088244438171387,
+    0.08456537127494812,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QC_GATE": 50,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.7,
+    "N": 15,
+    "T_HORIZON": 0.8,
+    "RAMP_TIME": 1.8,
+    "BARRIER_WEIGHT": 10,
+    "TUNNEL_WIDTH": 0.5,
+    "TUNNEL_WIDTH_GATE": 0.15,
+    "NARROW_DIST": 0.7,
+    "GATE_FLAT_DIST": 0.2,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "IN_GATE_RAMP_TIME": 0.3,
+    "OUT_GATE_RAMP_TIME": 0.5
+  },
+  "box_lims": {
+    "vtheta_max": 1.7,
+    "dvtheta_max": 1.7
+  }
+}
+2025-06-25 15:37:05,241 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-25 15:37:05,241 | DEBUG   | {
+  "xcurrent": [
+    1.0873581171035767,
+    1.4410548210144043,
+    0.07768131792545319,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QC_GATE": 50,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.7,
+    "N": 15,
+    "T_HORIZON": 0.8,
+    "RAMP_TIME": 1.8,
+    "BARRIER_WEIGHT": 10,
+    "TUNNEL_WIDTH": 0.5,
+    "TUNNEL_WIDTH_GATE": 0.15,
+    "NARROW_DIST": 0.7,
+    "GATE_FLAT_DIST": 0.2,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "IN_GATE_RAMP_TIME": 0.3,
+    "OUT_GATE_RAMP_TIME": 0.5
+  },
+  "box_lims": {
+    "vtheta_max": 1.7,
+    "dvtheta_max": 1.7
+  }
+}
+2025-06-25 15:37:09,504 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-25 15:37:09,505 | DEBUG   | {
+  "xcurrent": [
+    1.0629383325576782,
+    1.4237182140350342,
+    0.07154420018196106,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QC_GATE": 50,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.7,
+    "N": 15,
+    "T_HORIZON": 0.8,
+    "RAMP_TIME": 1.8,
+    "BARRIER_WEIGHT": 10,
+    "TUNNEL_WIDTH": 0.5,
+    "TUNNEL_WIDTH_GATE": 0.15,
+    "NARROW_DIST": 0.7,
+    "GATE_FLAT_DIST": 0.2,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "IN_GATE_RAMP_TIME": 0.3,
+    "OUT_GATE_RAMP_TIME": 0.5
+  },
+  "box_lims": {
+    "vtheta_max": 1.7,
+    "dvtheta_max": 1.7
+  }
+}
+2025-06-25 15:37:16,214 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-25 15:37:16,215 | DEBUG   | {
+  "xcurrent": [
+    1.0925123691558838,
+    1.5155709981918335,
+    0.07682008296251297,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QC_GATE": 50,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.7,
+    "N": 15,
+    "T_HORIZON": 0.8,
+    "RAMP_TIME": 1.8,
+    "BARRIER_WEIGHT": 10,
+    "TUNNEL_WIDTH": 0.5,
+    "TUNNEL_WIDTH_GATE": 0.15,
+    "NARROW_DIST": 0.7,
+    "GATE_FLAT_DIST": 0.2,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "IN_GATE_RAMP_TIME": 0.3,
+    "OUT_GATE_RAMP_TIME": 0.5
+  },
+  "box_lims": {
+    "vtheta_max": 1.7,
+    "dvtheta_max": 1.7
+  }
+}
+2025-06-25 15:37:23,365 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-25 15:37:23,365 | DEBUG   | {
+  "xcurrent": [
+    0.960694432258606,
+    1.539371132850647,
+    0.08154942840337753,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QC_GATE": 50,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.7,
+    "N": 15,
+    "T_HORIZON": 0.8,
+    "RAMP_TIME": 1.8,
+    "BARRIER_WEIGHT": 10,
+    "TUNNEL_WIDTH": 0.5,
+    "TUNNEL_WIDTH_GATE": 0.15,
+    "NARROW_DIST": 0.7,
+    "GATE_FLAT_DIST": 0.2,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "IN_GATE_RAMP_TIME": 0.3,
+    "OUT_GATE_RAMP_TIME": 0.5
+  },
+  "box_lims": {
+    "vtheta_max": 1.7,
+    "dvtheta_max": 1.7
+  }
+}
+2025-06-25 15:37:30,524 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-25 15:37:30,524 | DEBUG   | {
+  "xcurrent": [
+    1.069999098777771,
+    1.560401439666748,
+    0.08358795940876007,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QC_GATE": 50,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.7,
+    "N": 15,
+    "T_HORIZON": 0.8,
+    "RAMP_TIME": 1.8,
+    "BARRIER_WEIGHT": 10,
+    "TUNNEL_WIDTH": 0.5,
+    "TUNNEL_WIDTH_GATE": 0.15,
+    "NARROW_DIST": 0.7,
+    "GATE_FLAT_DIST": 0.2,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "IN_GATE_RAMP_TIME": 0.3,
+    "OUT_GATE_RAMP_TIME": 0.5
+  },
+  "box_lims": {
+    "vtheta_max": 1.7,
+    "dvtheta_max": 1.7
+  }
+}
+2025-06-25 15:37:30,964 | ERROR   | Solver failed | status=2 | SQP it=1000 | KKT=8.84e-08 | t=0.202s
+2025-06-25 15:37:30,965 | ERROR   | Dump saved → debug_logs/fail/tick0009.json
+2025-06-25 15:37:34,757 | ERROR   | Solver failed | status=2 | SQP it=1000 | KKT=6.29e-11 | t=0.521s
+2025-06-25 15:37:34,759 | ERROR   | Dump saved → debug_logs/fail/tick0124.json
+2025-06-25 15:37:41,298 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-25 15:37:41,298 | DEBUG   | {
+  "xcurrent": [
+    1.0576115846633911,
+    1.4982999563217163,
+    0.08606916666030884,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QC_GATE": 50,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.7,
+    "N": 15,
+    "T_HORIZON": 0.8,
+    "RAMP_TIME": 1.8,
+    "BARRIER_WEIGHT": 10,
+    "TUNNEL_WIDTH": 0.5,
+    "TUNNEL_WIDTH_GATE": 0.15,
+    "NARROW_DIST": 0.7,
+    "GATE_FLAT_DIST": 0.2,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "IN_GATE_RAMP_TIME": 0.3,
+    "OUT_GATE_RAMP_TIME": 0.5
+  },
+  "box_lims": {
+    "vtheta_max": 1.7,
+    "dvtheta_max": 1.7
+  }
+}

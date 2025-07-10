@@ -1,0 +1,104 @@
+2025-06-29 08:38:28,464 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-29 08:38:28,465 | DEBUG   | {
+  "xcurrent": [
+    1.089695930480957,
+    1.4088244438171387,
+    0.08456537127494812,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QC_GATE": 50,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.6,
+    "N": 20,
+    "T_HORIZON": 0.7,
+    "RAMP_TIME": 0.7,
+    "BARRIER_WEIGHT": 10,
+    "OBSTACLE_WEIGHT": [
+      10,
+      10,
+      10,
+      10
+    ],
+    "OBSTACLE_RADIUS": 0.2,
+    "OBSTACLE_ALPHA": 30.0,
+    "TUNNEL_WIDTH": 0.4,
+    "TUNNEL_WIDTH_GATE": 0.15,
+    "NARROW_DIST": 0.6,
+    "GATE_FLAT_DIST": 0.45,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "REG_THRUST": 0.02,
+    "REG_INPUTS": 0.8
+  },
+  "box_lims": {
+    "vtheta_max": 1.6,
+    "dvtheta_max": 1.6
+  }
+}
+2025-06-29 08:38:34,510 | ERROR   | Solver failed | status=2 | SQP it=1000 | KKT=1.87e-08 | t=0.529s
+2025-06-29 08:38:34,510 | ERROR   | Dump saved → debug_logs/fail/tick0069.json
+2025-06-29 08:38:36,162 | ERROR   | Solver failed | status=2 | SQP it=1000 | KKT=1.75e-09 | t=0.588s
+2025-06-29 08:38:36,163 | ERROR   | Dump saved → debug_logs/fail/tick0072.json
+2025-06-29 08:38:36,907 | ERROR   | Solver failed | status=2 | SQP it=1000 | KKT=3.05e-08 | t=0.717s
+2025-06-29 08:38:36,908 | ERROR   | Dump saved → debug_logs/fail/tick0073.json
+2025-06-29 08:38:37,542 | ERROR   | Solver failed | status=2 | SQP it=1000 | KKT=2.85e-13 | t=0.609s
+2025-06-29 08:38:37,543 | ERROR   | Dump saved → debug_logs/fail/tick0074.json
+2025-06-29 08:38:38,169 | ERROR   | Solver failed | status=2 | SQP it=1000 | KKT=1.89e-12 | t=0.600s
+2025-06-29 08:38:38,170 | ERROR   | Dump saved → debug_logs/fail/tick0075.json
+2025-06-29 08:38:38,847 | ERROR   | Solver failed | status=2 | SQP it=1000 | KKT=3.86e-15 | t=0.490s
+2025-06-29 08:38:38,848 | ERROR   | Dump saved → debug_logs/fail/tick0081.json
+2025-06-29 08:38:39,362 | ERROR   | Solver failed | status=2 | SQP it=1000 | KKT=1.31e-11 | t=0.486s
+2025-06-29 08:38:39,363 | ERROR   | Dump saved → debug_logs/fail/tick0082.json
+2025-06-29 08:38:39,876 | ERROR   | Solver failed | status=2 | SQP it=1000 | KKT=4.11e-15 | t=0.485s
+2025-06-29 08:38:39,876 | ERROR   | Dump saved → debug_logs/fail/tick0083.json
+2025-06-29 08:38:43,043 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-29 08:38:43,043 | DEBUG   | {
+  "xcurrent": [
+    1.0746203660964966,
+    1.5476146936416626,
+    0.07050605118274689,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QC_GATE": 50,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.6,
+    "N": 20,
+    "T_HORIZON": 0.7,
+    "RAMP_TIME": 0.7,
+    "BARRIER_WEIGHT": 10,
+    "OBSTACLE_WEIGHT": [
+      10,
+      10,
+      10,
+      10
+    ],
+    "OBSTACLE_RADIUS": 0.2,
+    "OBSTACLE_ALPHA": 30.0,
+    "TUNNEL_WIDTH": 0.4,
+    "TUNNEL_WIDTH_GATE": 0.15,
+    "NARROW_DIST": 0.6,
+    "GATE_FLAT_DIST": 0.45,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "REG_THRUST": 0.02,
+    "REG_INPUTS": 0.8
+  },
+  "box_lims": {
+    "vtheta_max": 1.6,
+    "dvtheta_max": 1.6
+  }
+}
+2025-06-29 08:38:46,116 | ERROR   | Solver failed | status=2 | SQP it=1000 | KKT=4.63e-08 | t=0.789s
+2025-06-29 08:38:46,117 | ERROR   | Dump saved → debug_logs/fail/tick0071.json
+2025-06-29 08:38:46,933 | ERROR   | Solver failed | status=2 | SQP it=1000 | KKT=4.26e-11 | t=0.789s
+2025-06-29 08:38:46,934 | ERROR   | Dump saved → debug_logs/fail/tick0072.json

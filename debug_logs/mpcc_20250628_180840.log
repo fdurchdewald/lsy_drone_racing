@@ -1,0 +1,168 @@
+2025-06-28 18:08:43,473 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-28 18:08:43,473 | DEBUG   | {
+  "xcurrent": [
+    1.089695930480957,
+    1.4088244438171387,
+    0.08456537127494812,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QC_GATE": 50,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.4,
+    "N": 20,
+    "T_HORIZON": 0.9,
+    "RAMP_TIME": 0.5,
+    "BARRIER_WEIGHT": 30,
+    "OBSTACLE_WEIGHT": [
+      60,
+      200,
+      150,
+      60
+    ],
+    "OBSTACLE_RADIUS": 0.2,
+    "TUNNEL_WIDTH": 0.4,
+    "TUNNEL_WIDTH_GATE": 0.2,
+    "NARROW_DIST": 0.5,
+    "GATE_FLAT_DIST": 0.3,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "REG_THRUST": 0.008,
+    "REG_INPUTS": 0.05
+  },
+  "box_lims": {
+    "vtheta_max": 1.4,
+    "dvtheta_max": 1.4
+  }
+}
+2025-06-28 18:08:51,496 | ERROR   | Solver failed | status=4 | SQP it=9 | KKT=1.78e-15 | t=0.006s
+2025-06-28 18:08:51,497 | ERROR   | Dump saved → debug_logs/fail/tick0090.json
+2025-06-28 18:08:51,533 | ERROR   | Solver failed | status=4 | SQP it=4 | KKT=2.48e-10 | t=0.003s
+2025-06-28 18:08:51,533 | ERROR   | Dump saved → debug_logs/fail/tick0091.json
+2025-06-28 18:08:55,571 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-28 18:08:55,572 | DEBUG   | {
+  "xcurrent": [
+    1.0268652439117432,
+    1.5604404211044312,
+    0.07767997682094574,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QC_GATE": 50,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.4,
+    "N": 20,
+    "T_HORIZON": 0.9,
+    "RAMP_TIME": 0.5,
+    "BARRIER_WEIGHT": 30,
+    "OBSTACLE_WEIGHT": [
+      60,
+      200,
+      150,
+      60
+    ],
+    "OBSTACLE_RADIUS": 0.2,
+    "TUNNEL_WIDTH": 0.4,
+    "TUNNEL_WIDTH_GATE": 0.2,
+    "NARROW_DIST": 0.5,
+    "GATE_FLAT_DIST": 0.3,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "REG_THRUST": 0.008,
+    "REG_INPUTS": 0.05
+  },
+  "box_lims": {
+    "vtheta_max": 1.4,
+    "dvtheta_max": 1.4
+  }
+}
+2025-06-28 18:09:00,806 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-28 18:09:00,806 | DEBUG   | {
+  "xcurrent": [
+    1.0805823802947998,
+    1.4687542915344238,
+    0.08818048238754272,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QC_GATE": 50,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.4,
+    "N": 20,
+    "T_HORIZON": 0.9,
+    "RAMP_TIME": 0.5,
+    "BARRIER_WEIGHT": 30,
+    "OBSTACLE_WEIGHT": [
+      60,
+      200,
+      150,
+      60
+    ],
+    "OBSTACLE_RADIUS": 0.2,
+    "TUNNEL_WIDTH": 0.4,
+    "TUNNEL_WIDTH_GATE": 0.2,
+    "NARROW_DIST": 0.5,
+    "GATE_FLAT_DIST": 0.3,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "REG_THRUST": 0.008,
+    "REG_INPUTS": 0.05
+  },
+  "box_lims": {
+    "vtheta_max": 1.4,
+    "dvtheta_max": 1.4
+  }
+}
+2025-06-28 18:09:05,898 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-28 18:09:05,898 | DEBUG   | {
+  "xcurrent": [
+    1.0658868551254272,
+    1.4638547897338867,
+    0.08329867571592331,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QC_GATE": 50,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.4,
+    "N": 20,
+    "T_HORIZON": 0.9,
+    "RAMP_TIME": 0.5,
+    "BARRIER_WEIGHT": 30,
+    "OBSTACLE_WEIGHT": [
+      60,
+      200,
+      150,
+      60
+    ],
+    "OBSTACLE_RADIUS": 0.2,
+    "TUNNEL_WIDTH": 0.4,
+    "TUNNEL_WIDTH_GATE": 0.2,
+    "NARROW_DIST": 0.5,
+    "GATE_FLAT_DIST": 0.3,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "REG_THRUST": 0.008,
+    "REG_INPUTS": 0.05
+  },
+  "box_lims": {
+    "vtheta_max": 1.4,
+    "dvtheta_max": 1.4
+  }
+}

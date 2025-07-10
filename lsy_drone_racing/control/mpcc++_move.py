@@ -610,7 +610,7 @@ class MPController(Controller):
             init_obs = self._init_obs
             obs_arr = np.array([o for o in curent_obs if not any(np.allclose(o, io) for io in init_obs)])
 
-            pref_shift = move_for_obstacles(pref, w_stage, obs_arr, n, margin=0.25)
+            pref_shift, _ = shrink_side_for_obstacles(pref,n, w_stage, obs_arr, margin=0.4)
 
             # apply interpolation to avoid jumps
             if prev_centres is not None and len(prev_centres) > j:
@@ -897,3 +897,41 @@ def move_for_obstacles(
             c_shifted[:2] = c_shifted[:2] + shift * direction_xy
 
     return c_shifted
+
+def shrink_side_for_obstacles(pref: np.ndarray, n_vec: np.ndarray,
+                              w_nom: float,              # ← keep this unchanged
+                              obstacles: np.ndarray,
+                              margin: float = 0.05,
+                              max_shift: float | None = None
+                              ) -> tuple[np.ndarray, float]:
+    """
+    Move the tunnel centre sideways so that every obstacle in `obstacles`
+    is at least `margin` away **inside** the nominal full width `w_nom`.
+    Returns
+        c_shifted : new centre (3,)
+        w_nom     : unchanged full width (passed through for convenience)
+    """
+    if obstacles.size == 0:
+        return pref, w_nom
+
+    w_half = w_nom / 2.0
+    shift = 0.0
+    for p in obstacles:
+        d = float(n_vec @ (p - pref))           # signed lateral offset
+        if abs(d) < w_half:                     # obstacle inside tunnel slab
+            free = abs(d) - margin
+            if free < 0.0:
+                free = 0.0
+            if d > 0:                           # post on +n side  → shrink right
+                needed_shift = w_half - free
+                shift -= needed_shift
+            else:                               # post on -n side  → shrink left
+                needed_shift = w_half - free
+                shift += needed_shift
+
+
+    # optional safety clamp
+    if max_shift is not None:
+        shift = np.clip(shift, -max_shift, max_shift)
+
+    return pref + shift * n_vec, w_nom

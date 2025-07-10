@@ -1,0 +1,204 @@
+2025-06-29 17:33:05,725 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-29 17:33:05,725 | DEBUG   | {
+  "xcurrent": [
+    1.089695930480957,
+    1.4088244438171387,
+    0.08456537127494812,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.0,
+    "N": 20,
+    "T_HORIZON": 0.7,
+    "RAMP_TIME": 1.8,
+    "BW_RAMP": 1,
+    "BARRIER_WEIGHT": 100,
+    "TUNNEL_WIDTH": 0.4,
+    "TUNNEL_WIDTH_GATE": 0.15,
+    "NARROW_DIST": 0.7,
+    "GATE_FLAT_DIST": 0.1,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "REG_THRUST": 0.018,
+    "REG_INPUTS": 0.09
+  },
+  "box_lims": {
+    "vtheta_max": 1.0,
+    "dvtheta_max": 1.0
+  }
+}
+2025-06-29 17:33:53,945 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-29 17:33:53,945 | DEBUG   | {
+  "xcurrent": [
+    0.9332681894302368,
+    1.4292222261428833,
+    0.07662046700716019,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.0,
+    "N": 20,
+    "T_HORIZON": 0.7,
+    "RAMP_TIME": 1.8,
+    "BW_RAMP": 1,
+    "BARRIER_WEIGHT": 100,
+    "TUNNEL_WIDTH": 0.4,
+    "TUNNEL_WIDTH_GATE": 0.15,
+    "NARROW_DIST": 0.7,
+    "GATE_FLAT_DIST": 0.1,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "REG_THRUST": 0.018,
+    "REG_INPUTS": 0.09
+  },
+  "box_lims": {
+    "vtheta_max": 1.0,
+    "dvtheta_max": 1.0
+  }
+}
+2025-06-29 17:34:19,267 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-29 17:34:19,267 | DEBUG   | {
+  "xcurrent": [
+    1.060416579246521,
+    1.4076988697052002,
+    0.07983871549367905,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.0,
+    "N": 20,
+    "T_HORIZON": 0.7,
+    "RAMP_TIME": 1.8,
+    "BW_RAMP": 1,
+    "BARRIER_WEIGHT": 100,
+    "TUNNEL_WIDTH": 0.4,
+    "TUNNEL_WIDTH_GATE": 0.15,
+    "NARROW_DIST": 0.7,
+    "GATE_FLAT_DIST": 0.1,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "REG_THRUST": 0.018,
+    "REG_INPUTS": 0.09
+  },
+  "box_lims": {
+    "vtheta_max": 1.0,
+    "dvtheta_max": 1.0
+  }
+}
+2025-06-29 17:34:42,042 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-29 17:34:42,042 | DEBUG   | {
+  "xcurrent": [
+    1.0257116556167603,
+    1.4144731760025024,
+    0.08690889179706573,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.0,
+    "N": 20,
+    "T_HORIZON": 0.7,
+    "RAMP_TIME": 1.8,
+    "BW_RAMP": 1,
+    "BARRIER_WEIGHT": 100,
+    "TUNNEL_WIDTH": 0.4,
+    "TUNNEL_WIDTH_GATE": 0.15,
+    "NARROW_DIST": 0.7,
+    "GATE_FLAT_DIST": 0.1,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "REG_THRUST": 0.018,
+    "REG_INPUTS": 0.09
+  },
+  "box_lims": {
+    "vtheta_max": 1.0,
+    "dvtheta_max": 1.0
+  }
+}
+2025-06-29 17:35:03,060 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-29 17:35:03,061 | DEBUG   | {
+  "xcurrent": [
+    1.0964139699935913,
+    1.4200166463851929,
+    0.08249188959598541,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.0,
+    "N": 20,
+    "T_HORIZON": 0.7,
+    "RAMP_TIME": 1.8,
+    "BW_RAMP": 1,
+    "BARRIER_WEIGHT": 100,
+    "TUNNEL_WIDTH": 0.4,
+    "TUNNEL_WIDTH_GATE": 0.15,
+    "NARROW_DIST": 0.7,
+    "GATE_FLAT_DIST": 0.1,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "REG_THRUST": 0.018,
+    "REG_INPUTS": 0.09
+  },
+  "box_lims": {
+    "vtheta_max": 1.0,
+    "dvtheta_max": 1.0
+  }
+}
+2025-06-29 17:35:23,062 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-29 17:35:23,062 | DEBUG   | {
+  "xcurrent": [
+    1.0848000049591064,
+    1.5924187898635864,
+    0.07819320261478424,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.0,
+    "N": 20,
+    "T_HORIZON": 0.7,
+    "RAMP_TIME": 1.8,
+    "BW_RAMP": 1,
+    "BARRIER_WEIGHT": 100,
+    "TUNNEL_WIDTH": 0.4,
+    "TUNNEL_WIDTH_GATE": 0.15,
+    "NARROW_DIST": 0.7,
+    "GATE_FLAT_DIST": 0.1,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "REG_THRUST": 0.018,
+    "REG_INPUTS": 0.09
+  },
+  "box_lims": {
+    "vtheta_max": 1.0,
+    "dvtheta_max": 1.0
+  }
+}

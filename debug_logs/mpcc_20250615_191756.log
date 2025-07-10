@@ -1,0 +1,99 @@
+2025-06-15 19:17:59,570 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-15 19:17:59,571 | DEBUG   | {
+  "xcurrent": [
+    1.089695930480957,
+    1.4088244438171387,
+    0.08456537127494812,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QC_GATE": 50,
+    "QL": 80,
+    "MU": 10,
+    "DVTHETA_MAX": 1.9,
+    "N": 15,
+    "T_HORIZON": 0.8,
+    "RAMP_TIME": 1.8,
+    "BARRIER_WEIGHT": 10,
+    "TUNNEL_WIDTH": 0.5,
+    "TUNNEL_WIDTH_GATE": 0.1,
+    "NARROW_DIST": 1,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "IN_GATE_RAMP_TIME": 0.1,
+    "OUT_GATE_RAMP_TIME": 3
+  },
+  "box_lims": {
+    "vtheta_max": 1.9,
+    "dvtheta_max": 1.9
+  }
+}
+2025-06-15 19:18:10,253 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-15 19:18:10,253 | DEBUG   | {
+  "xcurrent": [
+    0.9394719004631042,
+    1.5799881219863892,
+    0.07597392797470093,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QC_GATE": 50,
+    "QL": 80,
+    "MU": 10,
+    "DVTHETA_MAX": 1.9,
+    "N": 15,
+    "T_HORIZON": 0.8,
+    "RAMP_TIME": 1.8,
+    "BARRIER_WEIGHT": 10,
+    "TUNNEL_WIDTH": 0.5,
+    "TUNNEL_WIDTH_GATE": 0.1,
+    "NARROW_DIST": 1,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "IN_GATE_RAMP_TIME": 0.1,
+    "OUT_GATE_RAMP_TIME": 3
+  },
+  "box_lims": {
+    "vtheta_max": 1.9,
+    "dvtheta_max": 1.9
+  }
+}
+2025-06-15 19:18:20,013 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-15 19:18:20,013 | DEBUG   | {
+  "xcurrent": [
+    1.057254433631897,
+    1.5749019384384155,
+    0.08907566964626312,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QC_GATE": 50,
+    "QL": 80,
+    "MU": 10,
+    "DVTHETA_MAX": 1.9,
+    "N": 15,
+    "T_HORIZON": 0.8,
+    "RAMP_TIME": 1.8,
+    "BARRIER_WEIGHT": 10,
+    "TUNNEL_WIDTH": 0.5,
+    "TUNNEL_WIDTH_GATE": 0.1,
+    "NARROW_DIST": 1,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "IN_GATE_RAMP_TIME": 0.1,
+    "OUT_GATE_RAMP_TIME": 3
+  },
+  "box_lims": {
+    "vtheta_max": 1.9,
+    "dvtheta_max": 1.9
+  }
+}

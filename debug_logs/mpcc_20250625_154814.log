@@ -1,0 +1,106 @@
+2025-06-25 15:48:17,881 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-25 15:48:17,881 | DEBUG   | {
+  "xcurrent": [
+    1.089695930480957,
+    1.4088244438171387,
+    0.08456537127494812,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QC_GATE": 50,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.7,
+    "N": 15,
+    "T_HORIZON": 0.8,
+    "RAMP_TIME": 1.8,
+    "BARRIER_WEIGHT": 10,
+    "TUNNEL_WIDTH": 0.5,
+    "TUNNEL_WIDTH_GATE": 0.15,
+    "NARROW_DIST": 0.7,
+    "GATE_FLAT_DIST": 0.2,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "IN_GATE_RAMP_TIME": 0.3,
+    "OUT_GATE_RAMP_TIME": 0.5
+  },
+  "box_lims": {
+    "vtheta_max": 1.7,
+    "dvtheta_max": 1.7
+  }
+}
+2025-06-25 15:48:31,152 | ERROR   | Solver failed | status=2 | SQP it=1000 | KKT=1.79e-09 | t=0.649s
+2025-06-25 15:48:31,154 | ERROR   | Dump saved → debug_logs/fail/tick0075.json
+2025-06-25 15:48:34,519 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-25 15:48:34,519 | DEBUG   | {
+  "xcurrent": [
+    0.9842161536216736,
+    1.5712085962295532,
+    0.0828397199511528,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QC_GATE": 50,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.7,
+    "N": 15,
+    "T_HORIZON": 0.8,
+    "RAMP_TIME": 1.8,
+    "BARRIER_WEIGHT": 10,
+    "TUNNEL_WIDTH": 0.5,
+    "TUNNEL_WIDTH_GATE": 0.15,
+    "NARROW_DIST": 0.7,
+    "GATE_FLAT_DIST": 0.2,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "IN_GATE_RAMP_TIME": 0.3,
+    "OUT_GATE_RAMP_TIME": 0.5
+  },
+  "box_lims": {
+    "vtheta_max": 1.7,
+    "dvtheta_max": 1.7
+  }
+}
+2025-06-25 15:48:34,931 | ERROR   | Solver failed | status=2 | SQP it=1000 | KKT=2.56e-08 | t=0.163s
+2025-06-25 15:48:34,933 | ERROR   | Dump saved → debug_logs/fail/tick0009.json
+2025-06-25 15:48:44,243 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-25 15:48:44,244 | DEBUG   | {
+  "xcurrent": [
+    0.9024562835693359,
+    1.5701425075531006,
+    0.08246491849422455,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QC_GATE": 50,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.7,
+    "N": 15,
+    "T_HORIZON": 0.8,
+    "RAMP_TIME": 1.8,
+    "BARRIER_WEIGHT": 10,
+    "TUNNEL_WIDTH": 0.5,
+    "TUNNEL_WIDTH_GATE": 0.15,
+    "NARROW_DIST": 0.7,
+    "GATE_FLAT_DIST": 0.2,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "IN_GATE_RAMP_TIME": 0.3,
+    "OUT_GATE_RAMP_TIME": 0.5
+  },
+  "box_lims": {
+    "vtheta_max": 1.7,
+    "dvtheta_max": 1.7
+  }
+}

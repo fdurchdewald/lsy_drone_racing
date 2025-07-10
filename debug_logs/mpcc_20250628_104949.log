@@ -1,0 +1,120 @@
+2025-06-28 10:49:51,924 | INFO    | ===== INITIAL STATE DUMP =====
+2025-06-28 10:49:51,924 | DEBUG   | {
+  "xcurrent": [
+    1.089695930480957,
+    1.4088244438171387,
+    0.08456537127494812,
+    0.0,
+    0.0,
+    0.0
+  ],
+  "params": {
+    "QC": 10,
+    "QC_GATE": 50,
+    "QL": 40,
+    "MU": 10,
+    "DVTHETA_MAX": 1.8,
+    "N": 20,
+    "T_HORIZON": 1.0,
+    "RAMP_TIME": 1.8,
+    "BARRIER_WEIGHT": 10,
+    "TUNNEL_WIDTH": 0.4,
+    "TUNNEL_WIDTH_GATE": 0.15,
+    "NARROW_DIST": 0.7,
+    "GATE_FLAT_DIST": 0.2,
+    "Q_OMEGA": 2,
+    "R_VTHETA": 1.0,
+    "IN_GATE_RAMP_TIME": 0.3,
+    "OUT_GATE_RAMP_TIME": 0.5,
+    "REG_THRUST": 0.018,
+    "REG_INPUTS": 0.03
+  },
+  "box_lims": {
+    "vtheta_max": 1.8,
+    "dvtheta_max": 1.8
+  }
+}
+2025-06-28 10:49:53,642 | ERROR   | Solver failed | status=2 | SQP it=1000 | KKT=8.76e-08 | t=0.273s
+2025-06-28 10:49:53,643 | ERROR   | Dump saved → debug_logs/fail/tick0010.json
+2025-06-28 10:50:12,586 | ERROR   | Solver failed | status=1 | SQP it=89 | KKT=2.00e-09 | t=0.087s
+2025-06-28 10:50:12,587 | ERROR   | Dump saved → debug_logs/fail/tick0129.json
+2025-06-28 10:50:12,615 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:12,616 | ERROR   | Dump saved → debug_logs/fail/tick0130.json
+2025-06-28 10:50:12,639 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:12,640 | ERROR   | Dump saved → debug_logs/fail/tick0131.json
+2025-06-28 10:50:12,665 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:12,665 | ERROR   | Dump saved → debug_logs/fail/tick0132.json
+2025-06-28 10:50:12,689 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:12,690 | ERROR   | Dump saved → debug_logs/fail/tick0133.json
+2025-06-28 10:50:12,714 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:12,715 | ERROR   | Dump saved → debug_logs/fail/tick0134.json
+2025-06-28 10:50:12,740 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:12,741 | ERROR   | Dump saved → debug_logs/fail/tick0135.json
+2025-06-28 10:50:12,764 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:12,764 | ERROR   | Dump saved → debug_logs/fail/tick0136.json
+2025-06-28 10:50:12,790 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:12,791 | ERROR   | Dump saved → debug_logs/fail/tick0137.json
+2025-06-28 10:50:12,813 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:12,814 | ERROR   | Dump saved → debug_logs/fail/tick0138.json
+2025-06-28 10:50:12,839 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:12,840 | ERROR   | Dump saved → debug_logs/fail/tick0139.json
+2025-06-28 10:50:12,865 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:12,865 | ERROR   | Dump saved → debug_logs/fail/tick0140.json
+2025-06-28 10:50:12,890 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:12,890 | ERROR   | Dump saved → debug_logs/fail/tick0141.json
+2025-06-28 10:50:12,915 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:12,915 | ERROR   | Dump saved → debug_logs/fail/tick0142.json
+2025-06-28 10:50:12,941 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:12,941 | ERROR   | Dump saved → debug_logs/fail/tick0143.json
+2025-06-28 10:50:12,967 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:12,967 | ERROR   | Dump saved → debug_logs/fail/tick0144.json
+2025-06-28 10:50:12,993 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:12,994 | ERROR   | Dump saved → debug_logs/fail/tick0145.json
+2025-06-28 10:50:13,019 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:13,020 | ERROR   | Dump saved → debug_logs/fail/tick0146.json
+2025-06-28 10:50:13,047 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:13,048 | ERROR   | Dump saved → debug_logs/fail/tick0147.json
+2025-06-28 10:50:13,073 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:13,073 | ERROR   | Dump saved → debug_logs/fail/tick0148.json
+2025-06-28 10:50:13,097 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:13,098 | ERROR   | Dump saved → debug_logs/fail/tick0149.json
+2025-06-28 10:50:13,123 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:13,123 | ERROR   | Dump saved → debug_logs/fail/tick0150.json
+2025-06-28 10:50:13,147 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:13,148 | ERROR   | Dump saved → debug_logs/fail/tick0151.json
+2025-06-28 10:50:13,173 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:13,174 | ERROR   | Dump saved → debug_logs/fail/tick0152.json
+2025-06-28 10:50:13,197 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:13,198 | ERROR   | Dump saved → debug_logs/fail/tick0153.json
+2025-06-28 10:50:13,223 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:13,223 | ERROR   | Dump saved → debug_logs/fail/tick0154.json
+2025-06-28 10:50:13,247 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:13,248 | ERROR   | Dump saved → debug_logs/fail/tick0155.json
+2025-06-28 10:50:13,273 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:13,274 | ERROR   | Dump saved → debug_logs/fail/tick0156.json
+2025-06-28 10:50:13,297 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:13,298 | ERROR   | Dump saved → debug_logs/fail/tick0157.json
+2025-06-28 10:50:13,323 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:13,324 | ERROR   | Dump saved → debug_logs/fail/tick0158.json
+2025-06-28 10:50:13,349 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:13,349 | ERROR   | Dump saved → debug_logs/fail/tick0159.json
+2025-06-28 10:50:13,374 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:13,374 | ERROR   | Dump saved → debug_logs/fail/tick0160.json
+2025-06-28 10:50:13,400 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:13,401 | ERROR   | Dump saved → debug_logs/fail/tick0161.json
+2025-06-28 10:50:13,426 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:13,426 | ERROR   | Dump saved → debug_logs/fail/tick0162.json
+2025-06-28 10:50:13,451 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:13,452 | ERROR   | Dump saved → debug_logs/fail/tick0163.json
+2025-06-28 10:50:13,475 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:13,475 | ERROR   | Dump saved → debug_logs/fail/tick0164.json
+2025-06-28 10:50:13,498 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:13,499 | ERROR   | Dump saved → debug_logs/fail/tick0165.json
+2025-06-28 10:50:13,523 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:13,523 | ERROR   | Dump saved → debug_logs/fail/tick0166.json
+2025-06-28 10:50:13,547 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:13,548 | ERROR   | Dump saved → debug_logs/fail/tick0167.json
+2025-06-28 10:50:13,573 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:13,573 | ERROR   | Dump saved → debug_logs/fail/tick0168.json
+2025-06-28 10:50:13,598 | ERROR   | Solver failed | status=1 | SQP it=0 | KKT=nan | t=0.000s
+2025-06-28 10:50:13,598 | ERROR   | Dump saved → debug_logs/fail/tick0169.json
