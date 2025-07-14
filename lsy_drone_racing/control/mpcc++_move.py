@@ -43,7 +43,6 @@ MPCC_CFG = dict(
     BARRIER_WEIGHT = 100, 
     
     TUNNEL_WIDTH = 0.6,  # nominal tunnel width
-    TUNNEL_WIDTH_GATE = 0.20,  # nominal tunnel height
     NARROW_DIST = 0.4,      # distance (m) at which tunnel starts to narrow
     GATE_FLAT_DIST = 0.15,  # distance (m) from gate at which tunnel width remains at gate size
     
@@ -53,6 +52,7 @@ MPCC_CFG = dict(
     REG_INPUTS = 10.0e-2,
 
     OBSTACLE_RADIUS = [0.11, 0.14, 0.1, 0.1],
+    TUNNEL_WIDTH_GATE = [0.30, 0.15, 0.30, 0.15],  # reduced width of gate opening 
 )
 
 
@@ -579,7 +579,7 @@ class MPController(Controller):
             flat_dist = MPCC_CFG["GATE_FLAT_DIST"]
             narrow_dist = MPCC_CFG["NARROW_DIST"]
             
-            for gate_pos in obs["gates_pos"]:
+            for i, gate_pos in enumerate(obs["gates_pos"]):
                 dist_gate = np.linalg.norm(pref - gate_pos)
                 if dist_gate > narrow_dist:
                     # far from gate: full tunnel width
@@ -588,13 +588,13 @@ class MPController(Controller):
                 elif dist_gate > flat_dist:
                     # narrowing region: interpolate between wide and gate widths
                     ratio = (dist_gate - flat_dist) / (narrow_dist - flat_dist)
-                    w_stage = ratio * w_far + (1.0 - ratio) * w_gate
-                    h_stage = ratio * h_far + (1.0 - ratio) * h_gate
+                    w_stage = ratio * w_far + (1.0 - ratio) * w_gate[i]
+                    h_stage = ratio * h_far + (1.0 - ratio) * h_gate[i]
                     break
                 else:
                     # within flat region near the gate: constant gate width
-                    w_stage = w_gate
-                    h_stage = h_gate
+                    w_stage = w_gate[i]
+                    h_stage = h_gate[i]
                     break
 
             # Compute tunnel orientation with the stage‑specific width/height
