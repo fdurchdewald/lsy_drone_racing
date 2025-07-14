@@ -9,6 +9,7 @@ Look for instructions in `README.md` and in the official documentation.
 
 from __future__ import annotations
 
+import time
 import logging
 from pathlib import Path
 import mujoco
@@ -71,7 +72,7 @@ def simulate(
         track=config.env.track,
         disturbances=config.env.get("disturbances"),
         randomizations=config.env.get("randomizations"),
-        seed=config.env.seed,
+        seed=int(time.time()),
     )
     env = JaxToNumpy(env)
 
@@ -120,6 +121,11 @@ def simulate(
                     #             min_size=1.5, max_size=1.5)
                     # point = controller.get_ref_point()
                     # draw_point(env, point)
+                    drone_traj = controller.get_drone_trajectory()
+                    if len(drone_traj) >= 2:  
+                        draw_line(env, drone_traj,
+                                rgba=np.array([1.0, 0.0, 0.0, 1.0]),
+                                min_size=2.0, max_size=2.0)
                     planned_traj = controller.get_planned_trajectory()
                     draw_line(env, planned_traj,
                             rgba=np.array([0.0, 0.0, 1.0, 1.0]),
@@ -138,8 +144,6 @@ def simulate(
                 env.render()
 
             if terminated or truncated or controller_finished:
-                print(terminated)
-                print(truncated)
                 break
 
             i += 1
