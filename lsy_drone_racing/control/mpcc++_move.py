@@ -420,7 +420,7 @@ class MPController(Controller):
         self._pos_on_path = None  
         self._prev_waypoints = self._waypoints.copy()
         self._bw_ramp_elapsed = 0.0
-        
+        self._prev_idx_min_vis = 0 
         # Store predicted theta trajectory for reference in next iteration
         self._predicted_theta = np.zeros(self.N + 1)
         # storage for gate constraint polygons per MPC iteration
@@ -509,7 +509,13 @@ class MPController(Controller):
         traj_points_vis = self.traj_points          # (200,3) cached during init
         dists_vis = np.linalg.norm(traj_points_vis - pos, axis=1)
         idx_min_vis = int(np.argmin(dists_vis))
-        s_cur = self.vis_s[idx_min_vis]             # arclength of closest point
+        if self._prev_idx_min_vis - idx_min_vis < 5:
+            s_cur = self.vis_s[idx_min_vis]             
+            self._prev_idx_min_vis = idx_min_vis 
+        else:
+            s_cur = self.vis_s[self._prev_idx_min_vis]  
+
+
 
         
         xcurrent = np.zeros(16)
@@ -543,6 +549,7 @@ class MPController(Controller):
         #     True
         if self._tick == 0:
             s_cur = 0.0
+            self._predicted_theta = np.zeros(self.N + 1)
         # Store predicted theta trajectory so that get_tunnel_regions()
         # can draw the stage‑wise tunnel rectangles for the next visualization
         self._predicted_theta = theta_pred.copy()
