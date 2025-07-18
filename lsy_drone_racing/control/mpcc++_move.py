@@ -102,7 +102,7 @@ def export_quadrotor_ode_model() -> AcadosModel:
     dvtheta_cmd = MX.sym("dvtheta_cmd")
 
 
-    p = MX.sym("p", 18)
+    p = MX.sym("p", 20)  # Increase from 18 to 20
     px_r, py_r, pz_r = p[0], p[1], p[2]
     tx,   ty,   tz   = p[3], p[4], p[5]
     qc,   ql,   mu   = p[6], p[7], p[8]
@@ -110,7 +110,9 @@ def export_quadrotor_ode_model() -> AcadosModel:
     bx, by, bz = p[12], p[13], p[14]
     w_half     = p[15]
     h_half     = p[16]
-    w_bar      = p[17] 
+    w_bar      = p[17]
+    R_thrust   = p[18]  # Add as parameter
+    R_input    = p[19]  # Add as parameter
 
 
 
@@ -241,9 +243,9 @@ def create_ocp_solver(
     ocp.cost.cost_type = "EXTERNAL"
 
     # Tell acados how many parameters each stage has
-    ocp.dims.np = 18
+    ocp.dims.np = 20  # Update from 18 to 20
     # default parameter vector (will be overwritten at run time)
-    ocp.parameter_values = np.zeros(18)
+    ocp.parameter_values = np.zeros(20)  # Update size
 
 
     ocp.constraints.idxbx = np.array([9, 10, 11, 12, 13, 15])
@@ -457,6 +459,9 @@ class MPController(Controller):
 
         self._init_obs = np.asarray(obs["obstacles_pos"])
 
+        self._reg_thrust = MPCC_CFG["REG_THRUST"]
+        self._reg_inputs = MPCC_CFG["REG_INPUTS"]
+
     def compute_control(
         self, obs: dict[str, NDArray[np.floating]], info: dict | None = None
     ) -> NDArray[np.floating]:
@@ -559,7 +564,11 @@ class MPController(Controller):
         self.acados_ocp_solver.set(0, "lbx", xcurrent)
         self.acados_ocp_solver.set(0, "ubx", xcurrent)
 
-        
+        if self._tick < 50:
+            dist_z = np.abs(obs["pos"][2] - self.pos_on_path(s_cur)[2]) #negative if below path
+            self._reg_thrust = self._reg_thrust + 0.5 * dist_z 
+            print(f"dist_z={dist_z:8.4f}  reg_thrust={self._reg_thrust:12.6e}")
+
         # Standard tunnel selection for all stages; gate logic removed.
         for j in range(self.N):
 
@@ -643,7 +652,8 @@ class MPController(Controller):
                 [qc_val, ql_val, mu_val],
                 n,
                 b,
-                [w/2, h/2, bw_val]
+                [w/2, h/2, bw_val],
+                [self._reg_thrust, self._reg_inputs]  # Add regularization params
             ])
             self.acados_ocp_solver.set(j, "p", p_vec)
             self._planning_points.append(smoothed_c)  # Store the planned trajectory points
