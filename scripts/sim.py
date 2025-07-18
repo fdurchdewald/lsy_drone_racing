@@ -34,7 +34,7 @@ logger = logging.getLogger(__name__)
 def simulate(
     config: str = "level2.toml",
     controller: str | None = None,
-    n_runs: int = 1,
+    n_runs: int = 5,
     gui: bool | None = True,
     visualize: bool = True,
 ) -> list[float]:
@@ -79,6 +79,10 @@ def simulate(
     ep_times: list[float] = []
     for _ in range(n_runs):
         obs, info = env.reset()
+        default_mass = env.unwrapped.drone_mass  # Standard-Masse
+        current_mass = env.unwrapped.sim.data.params.mass  # Randomisierte Masse
+        mass_deviation = current_mass - default_mass  # Abweichung
+        print(f"Drone mass - Default: {default_mass}, Deviation: {mass_deviation}, Total: {current_mass}")
         controller: Controller = controller_cls(obs, info, config)
 
         # --- Prepare a permanent sample of the spline trajectory ---
