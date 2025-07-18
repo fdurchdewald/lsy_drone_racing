@@ -32,13 +32,13 @@ MPCC_CFG = dict(
     QC=20,
     QL=20,
     MU=10,
-    DVTHETA_MAX=1.8,
+    DVTHETA_MAX=2.0,
     N=20,
     T_HORIZON=0.9,
 
-    ALPHA_INTERP=0.5,  # smoothing factor for tunnel width interpolation: 0=no movement, 1=full shift
+    ALPHA_INTERP=0.6,  # smoothing factor for tunnel width interpolation: 0=no movement, 1=full shift
 
-    RAMP_TIME=1.3,
+    RAMP_TIME=0.5,
     BW_RAMP=0.2,  # ramp time for barrier weight‚
     BARRIER_WEIGHT = 100, 
     
@@ -46,13 +46,13 @@ MPCC_CFG = dict(
     NARROW_DIST = 0.4,      # distance (m) at which tunnel starts to narrow
     GATE_FLAT_DIST = 0.15,  # distance (m) from gate at which tunnel width remains at gate size
     
-    R_VTHETA = 1.0e-2,        # quadratic penalty on vtheta
+    R_VTHETA = 0.8e-2,        # quadratic penalty on vtheta
 
-    REG_THRUST = 10.0e-2,
-    REG_INPUTS = 10.0e-2,
+    REG_THRUST = 8.0e-2,
+    REG_INPUTS = 8.0e-2,
 
     OBSTACLE_RADIUS = [0.11, 0.14, 0.1, 0.1],
-    TUNNEL_WIDTH_GATE = [0.30, 0.15, 0.30, 0.15],  # reduced width of gate opening 
+    TUNNEL_WIDTH_GATE = [0.25, 0.15, 0.18, 0.25],  # reduced width of gate opening 
 )
 
 
@@ -363,7 +363,7 @@ class MPController(Controller):
                 [0.5, 0.1, 0.8],
                 gates_pos[2],     # gate2 centre
                 [-0.2, gates_pos[2][1]+0.17, 1.0],
-                [obs['obstacles_pos'][3][0] + 0.2, obs['obstacles_pos'][3][1], 1.1],
+                [obs['obstacles_pos'][3][0] + 0.1, obs['obstacles_pos'][3][1], 1.1],
                 gates_pos[3],     # gate3 centre
                 [-4, -2, 1.11],
                 [-7, -6, 1.11]
@@ -404,11 +404,11 @@ class MPController(Controller):
         self.dt = self.T_HORIZON / self.N
 
         self.acados_ocp_solver, self.ocp = create_ocp_solver(self.T_HORIZON, self.N)
-        self.last_f_collective = 0.3
+        self.last_f_collective = 0.2
         self.last_rpy_cmd = np.zeros(3)
-        self.last_f_cmd = 0.3
+        self.last_f_cmd = 0.2
         self.last_theta = 0.3
-        self.last_vtheta = 0
+        self.last_vtheta = 0.1
         self.config = config
         self.finished = False
         self._gate_idx = 0
@@ -461,6 +461,7 @@ class MPController(Controller):
 
         self._reg_thrust = MPCC_CFG["REG_THRUST"]
         self._reg_inputs = MPCC_CFG["REG_INPUTS"]
+        self._dist_z_history: list[float] = []        # histories for debugging
 
     def compute_control(
         self, obs: dict[str, NDArray[np.floating]], info: dict | None = None
@@ -565,9 +566,31 @@ class MPController(Controller):
         self.acados_ocp_solver.set(0, "ubx", xcurrent)
 
         if self._tick < 50:
-            dist_z = np.abs(obs["pos"][2] - self.pos_on_path(s_cur)[2]) #negative if below path
-            self._reg_thrust = self._reg_thrust + 0.5 * dist_z 
-            print(f"dist_z={dist_z:8.4f}  reg_thrust={self._reg_thrust:12.6e}")
+            dist_z = obs["pos"][2] - self.pos_on_path(s_cur)[2]
+            # sammeln und loggen
+            self._dist_z_history.append(dist_z)
+            log.debug(f"[tick {self._tick}] dist_z = {dist_z:.4f}")
+
+            # alter Code für reg_thrust/reg_inputs blieb unverändert
+            if dist_z < 0:
+                self._reg_thrust = max(0.0, self._reg_thrust + 0.3 * dist_z)
+                self._reg_inputs = MPCC_CFG["REG_INPUTS"] * 0.9
+            else:
+                self._reg_inputs = MPCC_CFG["REG_INPUTS"] * 1.4
+
+            # sobald wir 50 Werte haben, plotten und abspeichern
+            if len(self._dist_z_history) == 50:
+                import matplotlib.pyplot as plt
+                plt.figure()
+                plt.plot(self._dist_z_history, marker='o')
+                plt.xlabel("Tick")
+                plt.ylabel("dist_z (m)")
+                plt.title("dist_z for first 50 ticks")
+                plt.grid(True)
+                plt.savefig("dist_z_first50.png")
+                log.info("dist_z plot saved to dist_z_first50.png")
+
+        
 
         # Standard tunnel selection for all stages; gate logic removed.
         for j in range(self.N):
