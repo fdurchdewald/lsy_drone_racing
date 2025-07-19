@@ -9,19 +9,21 @@ from botorch.utils.sampling import draw_sobol_samples
 from botorch.utils.transforms import normalize, unnormalize, standardize
 from torch.quasirandom import SobolEngine
 from gpytorch.mlls import ExactMarginalLogLikelihood
+from lsy_drone_racing.control.debug_utils import get_logger as logger
 
+log = logger('TuRBO')
 # --- Minimal TuRBO helper (aus Tutorial) -----------------------------------------
 @dataclass
 class TurboState:
     dim: int
     batch_size: int
-    length: float = 0.2
+    length: float = 0.3
     length_min: float = 0.5 ** 7
     length_max: float = 1.6
     failure_counter: int = 0
     failure_tolerance: int = 0  # wird im __post_init__ gesetzt
     success_counter: int = 0
-    success_tolerance: int = 10
+    success_tolerance: int = 5
     best_value: float = -float("inf")
     restart_triggered: bool = False
 
@@ -77,15 +79,61 @@ def generate_batch(state: TurboState, model, X, Y, batch_size: int, n_candidates
     return ts(X_cand, num_samples=batch_size)
 # -------------------------------------------------------------------------------
 
-# --- Hyperparameter-Bounds (16 Parameter) --------------------------------------
+# --- Hyperparameter-Bounds (24 Parameter) --------------------------------------
+# Order MUST match hyperparam_names below. The last 8 dims are 4 OBSTACLE_RADIUS
+# values and 4 per-gate TUNNEL_WIDTH_GATE values.
 bounds = torch.tensor([
     [   # lower bounds
-        1, 1, 1e-4, 1, 10,   1e-3, 0.0, 1e-5, 1e-3, # QC, QL, MU, DVTHETA_MAX, N, T_HORIZON, ALPHA_INTERP, BW_RAMP, RAMP_TIME
-        1, 0.4, 0.15, 0.3, 0.05, 1e-6, 1e-6, 1e-6 # BARRIER_WEIGHT, TUNNEL_WIDTH, TUNNEL_WIDTH_GATE, NARROW_DIST, GATE_FLAT_DIST, R_VTHETA, REG_THRUST, REG_INPUTS
+        5,     # QC
+        5,     # QL
+        1e-4,  # MU
+        1.0,   # DVTHETA_MAX
+        10,    # N
+        1e-3,  # T_HORIZON
+        0.0,   # ALPHA_INTERP
+        1e-5,  # BW_RAMP
+        0.3,  # RAMP_TIME
+        10,    # BARRIER_WEIGHT (raised for new scale)
+        0.4,   # TUNNEL_WIDTH
+        0.2,   # NARROW_DIST
+        0.05,  # GATE_FLAT_DIST
+        1e-5,  # R_VTHETA
+        1e-4,  # REG_THRUST
+        1e-4,  # REG_INPUTS
+        0.08,  # OBSTACLE_RADIUS_0
+        0.08,  # OBSTACLE_RADIUS_1
+        0.08,  # OBSTACLE_RADIUS_2
+        0.08,  # OBSTACLE_RADIUS_3
+        0.10,  # TUNNEL_WIDTH_GATE_0
+        0.10,  # TUNNEL_WIDTH_GATE_1
+        0.10,  # TUNNEL_WIDTH_GATE_2
+        0.10,  # TUNNEL_WIDTH_GATE_3
     ],
     [   # upper bounds
-        50,  50,   10,  4,  40,   1.0,  1.0,  0.2, 2.0,
-        50,  0.6,   0.4,  0.7,  0.3,  1.0,  1.0,  1.0
+        60,    # QC
+        60,    # QL
+        100,    # MU
+        3.0,   # DVTHETA_MAX
+        30,    # N
+        1.0,   # T_HORIZON
+        1.0,   # ALPHA_INTERP
+        0.5,   # BW_RAMP
+        1.3,   # RAMP_TIME
+        150,   # BARRIER_WEIGHT
+        0.8,   # TUNNEL_WIDTH
+        0.8,   # NARROW_DIST
+        0.30,  # GATE_FLAT_DIST
+        0.05,  # R_VTHETA
+        0.2,   # REG_THRUST
+        0.2,   # REG_INPUTS
+        0.20,  # OBSTACLE_RADIUS_0
+        0.20,  # OBSTACLE_RADIUS_1
+        0.20,  # OBSTACLE_RADIUS_2
+        0.20,  # OBSTACLE_RADIUS_3
+        0.40,  # TUNNEL_WIDTH_GATE_0
+        0.40,  # TUNNEL_WIDTH_GATE_1
+        0.40,  # TUNNEL_WIDTH_GATE_2
+        0.40,  # TUNNEL_WIDTH_GATE_3
     ]
 ], dtype=torch.double)
 num_dims = bounds.shape[1]
@@ -94,19 +142,39 @@ num_dims = bounds.shape[1]
 # --- Custom Start-Param-Dicts --------------------------------------------
 # Definiere Start-Konfigurationen als Liste von Dictionaries:
 hyperparam_names = [
-    'QC','QL','MU','DVTHETA_MAX','N','T_HORIZON','ALPHA_INTERP','BW_RAMP', 'RAMP_TIME',
-    'BARRIER_WEIGHT','TUNNEL_WIDTH','TUNNEL_WIDTH_GATE','NARROW_DIST',
-    'GATE_FLAT_DIST','R_VTHETA','REG_THRUST','REG_INPUTS'
+    'QC','QL','MU','DVTHETA_MAX','N','T_HORIZON','ALPHA_INTERP',
+    'BW_RAMP','RAMP_TIME','BARRIER_WEIGHT','TUNNEL_WIDTH','NARROW_DIST',
+    'GATE_FLAT_DIST','R_VTHETA','REG_THRUST','REG_INPUTS',
+    'OBSTACLE_RADIUS_0','OBSTACLE_RADIUS_1','OBSTACLE_RADIUS_2','OBSTACLE_RADIUS_3',
+    'TUNNEL_WIDTH_GATE_0','TUNNEL_WIDTH_GATE_1','TUNNEL_WIDTH_GATE_2','TUNNEL_WIDTH_GATE_3'
 ]
 
 start_param_dicts = [
-    # Beispiel 1: Baseline
     {
-        'QC': 10, 'QL': 40, 'MU': 10, 'DVTHETA_MAX': 1.0,
-        'N': 20, 'T_HORIZON': 0.7, 'ALPHA_INTERP': 0.1, 'BW_RAMP': 1, 'RAMP_TIME' : 1.6,
-        'BARRIER_WEIGHT': 10, 'TUNNEL_WIDTH': 0.4, 'TUNNEL_WIDTH_GATE': 0.15,
-        'NARROW_DIST': 0.7, 'GATE_FLAT_DIST': 0.1, 'R_VTHETA': 1.0,
-        'REG_THRUST': 1.0e-4, 'REG_INPUTS': 9.0e-2
+        'QC': 20,
+        'QL': 20,
+        'MU': 10,
+        'DVTHETA_MAX': 1.9,
+        'N': 20,
+        'T_HORIZON': 0.9,
+        'ALPHA_INTERP': 0.6,
+        'BW_RAMP': 0.2,
+        'RAMP_TIME': 0.5,
+        'BARRIER_WEIGHT': 100,
+        'TUNNEL_WIDTH': 0.6,
+        'NARROW_DIST': 0.4,
+        'GATE_FLAT_DIST': 0.15,
+        'R_VTHETA': 0.008,
+        'REG_THRUST': 0.08,
+        'REG_INPUTS': 0.08,
+        'OBSTACLE_RADIUS_0': 0.11,
+        'OBSTACLE_RADIUS_1': 0.14,
+        'OBSTACLE_RADIUS_2': 0.10,
+        'OBSTACLE_RADIUS_3': 0.10,
+        'TUNNEL_WIDTH_GATE_0': 0.25,
+        'TUNNEL_WIDTH_GATE_1': 0.15,
+        'TUNNEL_WIDTH_GATE_2': 0.18,
+        'TUNNEL_WIDTH_GATE_3': 0.25,
     },
 ]
 
@@ -126,64 +194,60 @@ def evaluate_controller(params: torch.Tensor, n_eval: int = 3) -> float:
       - Gate(s) verfehlt:      reward = -1e6 - 1e5*(fehlende Gates)
     """
     hp = params.tolist()
-    rewards = []
     for _ in range(n_eval):
-        param_dict = dict(    
-            QC =               hp[0],
-            QL =              hp[1],
-            MU =               hp[2],
-            DVTHETA_MAX =    hp[3],
-            N            =   int(round(hp[4])),
-            T_HORIZON     =  hp[5],
-            ALPHA_INTERP  =  hp[6],
-            BW_RAMP       = hp[7],
-            RAMP_TIME     = hp[8],
-            BARRIER_WEIGHT = hp[9],
-            TUNNEL_WIDTH   = hp[10],
-            TUNNEL_WIDTH_GATE= hp[11],
-            NARROW_DIST     =hp[12],
-            GATE_FLAT_DIST = hp[13],
-            R_VTHETA       = hp[14],
-            REG_THRUST     = hp[15],
-            REG_INPUTS     = hp[16],
-        )
+        param_dict = {
+            'QC': hp[0],
+            'QL': hp[1],
+            'MU': hp[2],
+            'DVTHETA_MAX': hp[3],
+            'N': int(round(hp[4])),
+            'T_HORIZON': hp[5],
+            'ALPHA_INTERP': hp[6],
+            'BW_RAMP': hp[7],
+            'RAMP_TIME': hp[8],
+            'BARRIER_WEIGHT': hp[9],
+            'TUNNEL_WIDTH': hp[10],
+            'NARROW_DIST': hp[11],
+            'GATE_FLAT_DIST': hp[12],
+            'R_VTHETA': hp[13],
+            'REG_THRUST': hp[14],
+            'REG_INPUTS': hp[15],
+            'OBSTACLE_RADIUS': [hp[16], hp[17], hp[18], hp[19]],
+            'TUNNEL_WIDTH_GATE': [hp[20], hp[21], hp[22], hp[23]],
+        }
         # Debug: show which parameters are being evaluated
         print("PARAM_DICT:")
         for k, v in param_dict.items():
             print(f"  {k:18} = {v}")
-        time_finished, gates_passed = simulate(
-            n_runs=2,
+        time_finished, gates_passed, dist_z = simulate(
+            n_runs=10,
             gui=False,
             visualize=False,
             PARAM_DICT=param_dict
         )
         # Debug: print raw simulator outputs
-        print(gates_passed)
-        print(time_finished)
-        for i in range(len(time_finished)):
-            if time_finished[i] is None:
-                time_finished[i] = 1e4
-        # Aggregate lists if simulate returns lists
-        if isinstance(time_finished, (list, tuple)):
-            avg_time = sum(time_finished) / len(time_finished)
-        else:
-            avg_time = time_finished
-        if isinstance(gates_passed, (list, tuple)):
-            # penalize total missing gates across runs
-            total_missing = sum(max(0, 4 - g) for g in gates_passed)
-            if total_missing > 0:
-                reward = -1e6 - 1e5 * total_missing
+        print(f'gates passed: {gates_passed}')
+        print(f'time finished: {time_finished}')
+        valid_times = [t for t in time_finished if t is not None]
+        if valid_times:
+            avg_valid_time = sum(valid_times) / len(valid_times)
+            print(f"Average Time: {avg_valid_time}")
+
+
+        count_notfinished = 0
+        total_finished = []
+        for t in time_finished:
+            if t is not None:
+                total_finished.append(t)
             else:
-                reward = -avg_time
-        else:
-            if gates_passed < 4:
-                reward = -1e6 - 1e5 * (4 - gates_passed)
-            else:
-                reward = -avg_time
-        rewards.append(reward)
-        # Debug: print current average reward
-        print(float(sum(rewards) / len(rewards)))
-    return float(sum(rewards) / len(rewards))
+                count_notfinished += 1
+                if count_notfinished > 2:
+                    total_finished.append(30.0)
+        avg_time = sum(total_finished) / len(total_finished)
+        reward = -avg_time
+        print(f"Reward: {reward}")
+        log.debug(f"Time: {time_finished}, reward {reward}, used parameters: {param_dict}, dist z {dist_z}")
+    return reward
 
 # --- Initial Design ------------------------------------------------------------
 torch.manual_seed(0)
@@ -205,22 +269,29 @@ train_Y = standardize(Y_init)
 # -------------------------------------------------------------------------------
 
 # --- TuRBO State & Loop --------------------------------------------------------
-state = TurboState(dim=num_dims, batch_size=1)
+state = TurboState(dim=num_dims, batch_size=4)
 
-n_iter = 60
+n_iter = 1000
 for itr in range(n_iter):
     # GP anpassen
     gp = SingleTaskGP(train_X, train_Y)
     mll = ExactMarginalLogLikelihood(gp.likelihood, gp)
     fit_gpytorch_mll(mll)
 
-    # nächste Kandidaten
-    X_next_norm = generate_batch(state, gp, train_X, train_Y, batch_size=1)
-    X_next = unnormalize(X_next_norm.squeeze(0), bounds)
+    # Generiere eine Batch von Kandidaten entsprechend state.batch_size
+    X_next_norm = generate_batch(state, gp, train_X, train_Y, batch_size=state.batch_size)
 
-    # simuliere und reward
-    y_val = evaluate_controller(X_next)
-    Y_next = torch.tensor([[y_val]], dtype=torch.double)
+    # Unnormalize alle Kandidaten (Form: (batch_size, dim))
+    X_next = unnormalize(X_next_norm, bounds)
+
+    # Jede Kandidaten-Konfiguration evaluieren
+    Y_list = []
+    for cand in X_next:
+        y_val = evaluate_controller(cand)
+        Y_list.append([y_val])
+    Y_next = torch.tensor(Y_list, dtype=torch.double)
+
+    log.debug(f"Batch iteration {itr}: rewards {Y_next.view(-1).tolist()}, current TR length {state.length}")
 
     # TR-Status updaten
     state = update_state(state, Y_next)

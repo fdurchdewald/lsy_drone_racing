@@ -1,12 +1,3 @@
-"""Simulate the competition as in the IROS 2022 Safe Robot Learning competition.
-
-Run as:
-
-    $ python scripts/sim.py --config level0.toml
-
-Look for instructions in `README.md` and in the official documentation.
-"""
-
 from __future__ import annotations
 
 import logging
@@ -19,6 +10,7 @@ import gymnasium
 from gymnasium.wrappers.jax_to_numpy import JaxToNumpy
 import numpy as np
 
+import time
 from lsy_drone_racing.utils.utils import *
 
 
@@ -73,7 +65,7 @@ def simulate(
         track=config.env.track,
         disturbances=config.env.get("disturbances"),
         randomizations=config.env.get("randomizations"),
-        seed=config.env.seed,
+        seed=int(time.time()),
     )
     env = JaxToNumpy(env)
 
@@ -108,6 +100,7 @@ def simulate(
             flown_positions.append(obs["pos"])
 
             if terminated or truncated or controller_finished:
+                dist_z = controller.get_distz()
                 break
 
             i += 1
@@ -123,7 +116,7 @@ def simulate(
 
         list_gates_passed.append(int(gates_passed))
     env.close()
-    return ep_times, list_gates_passed
+    return ep_times, list_gates_passed, dist_z
 
 
 def log_episode_stats(obs: dict, info: dict, config: ConfigDict, curr_time: float):

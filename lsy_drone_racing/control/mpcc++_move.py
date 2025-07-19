@@ -32,7 +32,7 @@ MPCC_CFG = dict(
     QC=20,
     QL=20,
     MU=10,
-    DVTHETA_MAX=2.0,
+    DVTHETA_MAX=1.9,
     N=20,
     T_HORIZON=0.9,
 
@@ -334,6 +334,7 @@ class MPController(Controller):
         if PARAM_DICT is not None:
             MPCC_CFG.update(PARAM_DICT)
         self.freq = config.env.freq
+        self.dist_z = []
         self._tick = 0
         self._save_tick_pre_gate = 0
         self._save_tick_post_gate = 0
@@ -403,6 +404,7 @@ class MPController(Controller):
         self.T_HORIZON = MPCC_CFG["T_HORIZON"]  # time span of the MPC
         self.dt = self.T_HORIZON / self.N
 
+        self._acados_fail = 0
         self.acados_ocp_solver, self.ocp = create_ocp_solver(self.T_HORIZON, self.N)
         self.last_f_collective = 0.2
         self.last_rpy_cmd = np.zeros(3)
@@ -550,12 +552,10 @@ class MPController(Controller):
             theta_pred = self.last_theta + self.last_vtheta * np.linspace(0.0, self.T_HORIZON, self.N + 1)
             theta_pred[0] = s_cur
 
-        # if self._tick % 20 == 0:
-        #     print(f"θ={self.last_theta:6.2f}  vθ={self.last_vtheta:4.2f}")
-        #     True
         if self._tick == 0:
             s_cur = 0.0
             self._predicted_theta = np.zeros(self.N + 1)
+            self.theta_pred = np.zeros(self.N + 1)
         # Store predicted theta trajectory so that get_tunnel_regions()
         # can draw the stage‑wise tunnel rectangles for the next visualization
         self._predicted_theta = theta_pred.copy()
@@ -565,30 +565,30 @@ class MPController(Controller):
         self.acados_ocp_solver.set(0, "lbx", xcurrent)
         self.acados_ocp_solver.set(0, "ubx", xcurrent)
 
-        if self._tick < 50:
-            dist_z = obs["pos"][2] - self.pos_on_path(s_cur)[2]
-            # sammeln und loggen
-            self._dist_z_history.append(dist_z)
-            log.debug(f"[tick {self._tick}] dist_z = {dist_z:.4f}")
+        if self._tick < 15:
+            self.dist_z.append(obs["pos"][2] - self.pos_on_path(s_cur)[2])
+        #     # sammeln und loggen
+        #     self._dist_z_history.append(dist_z)
+        #     log.debug(f"[tick {self._tick}] dist_z = {dist_z:.4f}")
 
-            # alter Code für reg_thrust/reg_inputs blieb unverändert
-            if dist_z < 0:
-                self._reg_thrust = max(0.0, self._reg_thrust + 0.3 * dist_z)
-                self._reg_inputs = MPCC_CFG["REG_INPUTS"] * 0.9
-            else:
-                self._reg_inputs = MPCC_CFG["REG_INPUTS"] * 1.4
+        #     # alter Code für reg_thrust/reg_inputs blieb unverändert
+        #     if dist_z < 0:
+        #         self._reg_thrust = max(0.0, self._reg_thrust + 0.3 * dist_z)
+        #         self._reg_inputs = MPCC_CFG["REG_INPUTS"] * 0.9
+        #     else:
+        #         self._reg_inputs = MPCC_CFG["REG_INPUTS"] * 1.4
 
-            # sobald wir 50 Werte haben, plotten und abspeichern
-            if len(self._dist_z_history) == 50:
-                import matplotlib.pyplot as plt
-                plt.figure()
-                plt.plot(self._dist_z_history, marker='o')
-                plt.xlabel("Tick")
-                plt.ylabel("dist_z (m)")
-                plt.title("dist_z for first 50 ticks")
-                plt.grid(True)
-                plt.savefig("dist_z_first50.png")
-                log.info("dist_z plot saved to dist_z_first50.png")
+        #     # sobald wir 50 Werte haben, plotten und abspeichern
+        #     if len(self._dist_z_history) == 50:
+        #         import matplotlib.pyplot as plt
+        #         plt.figure()
+        #         plt.plot(self._dist_z_history, marker='o')
+        #         plt.xlabel("Tick")
+        #         plt.ylabel("dist_z (m)")
+        #         plt.title("dist_z for first 50 ticks")
+        #         plt.grid(True)
+        #         plt.savefig("dist_z_first50.png")
+        #         log.info("dist_z plot saved to dist_z_first50.png")
 
         
 
@@ -694,8 +694,12 @@ class MPController(Controller):
 
         if status != 0:
             print(f"[acados] Abbruch mit Status {status}")
+            self._acados_fail += 1
             self._bw_ramp_elapsed = 0.0
             self._dump_failure(status, tic, toc)
+            if self._acados_fail > 5:
+                self.finished = True
+                return np.zeros(4)
             return np.array([self.last_f_cmd, *self.last_rpy_cmd])
 
 
@@ -798,6 +802,8 @@ class MPController(Controller):
     def get_waypoints(self) -> NDArray[np.floating]:
         """Get the waypoints of the trajectory."""
         return self._waypoints
+    def get_distz(self) -> list[float]:
+        return self.dist_z
     
     def get_planning_points(self) -> NDArray[np.floating]:
         """Get the reference points of the trajectory."""
