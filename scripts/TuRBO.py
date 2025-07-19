@@ -186,7 +186,7 @@ start_points = torch.tensor(
 # ---------------------------------------------------------------------------
 
 
-def evaluate_controller(params: torch.Tensor, n_eval: int = 3) -> float:
+def evaluate_controller(params: torch.Tensor, n_eval: int = 1) -> float:
     """
     Ruft simulate() mit allen Hyperparametern auf.
     Reward:
@@ -219,8 +219,10 @@ def evaluate_controller(params: torch.Tensor, n_eval: int = 3) -> float:
         print("PARAM_DICT:")
         for k, v in param_dict.items():
             print(f"  {k:18} = {v}")
-        time_finished, gates_passed, dist_z = simulate(
-            n_runs=10,
+        
+        n_runs = 30
+        time_finished, gates_passed, dist_z, current_mass = simulate(
+            n_runs=n_runs,
             gui=False,
             visualize=False,
             PARAM_DICT=param_dict
@@ -228,6 +230,7 @@ def evaluate_controller(params: torch.Tensor, n_eval: int = 3) -> float:
         # Debug: print raw simulator outputs
         print(f'gates passed: {gates_passed}')
         print(f'time finished: {time_finished}')
+        print(f'current mass: {current_mass}')
         valid_times = [t for t in time_finished if t is not None]
         if valid_times:
             avg_valid_time = sum(valid_times) / len(valid_times)
@@ -241,12 +244,12 @@ def evaluate_controller(params: torch.Tensor, n_eval: int = 3) -> float:
                 total_finished.append(t)
             else:
                 count_notfinished += 1
-                if count_notfinished > 2:
-                    total_finished.append(30.0)
+                if count_notfinished > 0.1 * n_runs:
+                    total_finished.append(25.0)
         avg_time = sum(total_finished) / len(total_finished)
         reward = -avg_time
         print(f"Reward: {reward}")
-        log.debug(f"Time: {time_finished}, reward {reward}, used parameters: {param_dict}, dist z {dist_z}")
+        log.debug(f"Average Time: {avg_valid_time}, Time: {time_finished}, reward {reward}, used parameters: {param_dict}, current mass: {current_mass} dist z: {dist_z}")
     return reward
 
 # --- Initial Design ------------------------------------------------------------

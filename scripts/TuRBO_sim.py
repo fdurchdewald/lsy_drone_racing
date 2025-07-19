@@ -73,8 +73,10 @@ def simulate(
 
     list_times = []
     list_gates_passed = []
+    current_mass = []
     for _ in range(n_runs):
         obs, info = env.reset()
+        current_mass.append(env.unwrapped.sim.data.params.mass)
         controller: Controller = controller_cls(obs, info, config)
 
         # --- Prepare a permanent sample of the spline trajectory ---
@@ -116,7 +118,7 @@ def simulate(
 
         list_gates_passed.append(int(gates_passed))
     env.close()
-    return ep_times, list_gates_passed, dist_z
+    return ep_times, list_gates_passed, dist_z, current_mass
 
 
 def log_episode_stats(obs: dict, info: dict, config: ConfigDict, curr_time: float):
