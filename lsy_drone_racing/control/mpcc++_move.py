@@ -363,11 +363,11 @@ class MPController(Controller):
                 gates_pos[1],     # gate1 centre
                 [0.5, 0.1, 0.8],
                 gates_pos[2],     # gate2 centre
-                [-0.2, gates_pos[2][1]+0.17, 1.0],
+                [gates_pos[2][0] - 0.2, gates_pos[2][1] + 0.2, gates_pos[2][2] + 0.17],
                 [obs['obstacles_pos'][3][0] + 0.1, obs['obstacles_pos'][3][1], 1.1],
                 gates_pos[3],     # gate3 centre
-                [-4, -2, 1.11],
-                [-7, -6, 1.11]
+                [-0.5, -2, 1.11],
+                [-0.5, -6, 1.11]
             ]
         )
 
@@ -517,7 +517,7 @@ class MPController(Controller):
         traj_points_vis = self.traj_points          # (200,3) cached during init
         dists_vis = np.linalg.norm(traj_points_vis - pos, axis=1)
         idx_min_vis = int(np.argmin(dists_vis))
-        if self._prev_idx_min_vis - idx_min_vis < 5:
+        if abs(self._prev_idx_min_vis - idx_min_vis) < 10:
             s_cur = self.vis_s[idx_min_vis]             
             self._prev_idx_min_vis = idx_min_vis 
         else:
@@ -866,9 +866,7 @@ class MPController(Controller):
                 self._waypoints[idx+1] = [obs['obstacles_pos'][1][0]- 0.3, obs['obstacles_pos'][1][1], 0.75]
                 self._waypoints[idx+2] = [obs['obstacles_pos'][1][0], obs['obstacles_pos'][1][1] - 0.4, 0.85]
             if i == 2:
-                dist = np.linalg.norm(pos[:2] - obs['obstacles_pos'][2][:2])
-                if dist < 0.7:
-                    self._waypoints[idx+1] = [pos[0] - 0.2, pos[1] + 0.2, pos[2] + 0.17]
+                self._waypoints[idx+1] = [pos[0] - 0.2, pos[1] + 0.2, pos[2] + 0.17]
 
             if i == 3 and not obs['target_gate'] == 3:
                 if obs['obstacles_pos'][3][0] < -0.45:  # obstacle is on the right side  
