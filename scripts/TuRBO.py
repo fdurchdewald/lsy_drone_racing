@@ -89,16 +89,16 @@ bounds = torch.tensor([
         1e-4,  # MU
         1.0,   # DVTHETA_MAX
         10,    # N
-        1e-3,  # T_HORIZON
-        0.0,   # ALPHA_INTERP
-        1e-5,  # BW_RAMP
+        4e-1,  # T_HORIZON
+        0.2,   # ALPHA_INTERP
+        1e-1,  # BW_RAMP
         0.3,  # RAMP_TIME
         10,    # BARRIER_WEIGHT (raised for new scale)
         0.4,   # TUNNEL_WIDTH
         0.2,   # NARROW_DIST
         0.05,  # GATE_FLAT_DIST
-        2.0,  # R_VTHETA
-        1e-4,  # REG_THRUST
+        1e-6,  # R_VTHETA
+        -1e-2,  # REG_THRUST
         1e-4,  # REG_INPUTS
         0.08,  # OBSTACLE_RADIUS_0
         0.08,  # OBSTACLE_RADIUS_1
@@ -115,15 +115,15 @@ bounds = torch.tensor([
         100,    # MU
         3.0,   # DVTHETA_MAX
         30,    # N
-        1.0,   # T_HORIZON
-        1.0,   # ALPHA_INTERP
+        1.2,   # T_HORIZON
+        0.8,   # ALPHA_INTERP
         0.5,   # BW_RAMP
-        1.3,   # RAMP_TIME
+        0.8,   # RAMP_TIME
         150,   # BARRIER_WEIGHT
         0.8,   # TUNNEL_WIDTH
         0.8,   # NARROW_DIST
         0.30,  # GATE_FLAT_DIST
-        -2.0,  # R_VTHETA
+        2.0,  # R_VTHETA
         0.2,   # REG_THRUST
         0.2,   # REG_INPUTS
         0.20,  # OBSTACLE_RADIUS_0
