@@ -9,21 +9,21 @@ Look for instructions in `README.md` and in the official documentation.
 
 from __future__ import annotations
 
-import time
 import logging
+import time
 from pathlib import Path
-import mujoco
 from typing import TYPE_CHECKING
 
 import fire
 import gymnasium
-from gymnasium.wrappers.jax_to_numpy import JaxToNumpy
 import numpy as np
+from gymnasium.wrappers.jax_to_numpy import JaxToNumpy
 
 from lsy_drone_racing.utils.utils import *
 
 if TYPE_CHECKING:
     from ml_collections import ConfigDict
+
     from lsy_drone_racing.control.controller import Controller
     from lsy_drone_racing.envs.drone_race import DroneRaceEnv
 

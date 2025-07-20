@@ -203,8 +203,7 @@ def draw_box(
     corner_max: NDArray,  # shape (3,)
     rgba: NDArray | None = None,
 ):
-    """
-    Draw a filled transparent 3D box from two opposite corners.
+    """Draw a filled transparent 3D box from two opposite corners.
 
     Args:
         env: The drone racing environment.
@@ -261,8 +260,7 @@ def _rotation_matrix_from_points(p1: NDArray, p2: NDArray) -> R:
 
 
 def _quat_to_mat(q: NDArray) -> NDArray:
-    """
-    Wandelt einen Quaternion (x, y, z, w) in eine 3 × 3-Rotationsmatrix um.
+    """Wandelt einen Quaternion (x, y, z, w) in eine 3 × 3-Rotationsmatrix um.
     """
     x, y, z, w = q
     # sicherheitshalber normalisieren
@@ -382,8 +380,7 @@ def draw_tube(env, pos_on_path, s_total,
               step=0.50,         # 0.50 m!
               n_seg=8,           # 8 Segmente
               rgba=np.array([0.0, 0.6, 1.0, 0.13])):
-    """
-    Zeichnet eine halbtransparente Röhre um die Centerline.
+    """Zeichnet eine halbtransparente Röhre um die Centerline.
     """
     if env.unwrapped.sim.viewer is None:
         return
@@ -511,8 +508,7 @@ def draw_tunnel_regions_from_corners(
     rgba: np.ndarray | None = None,
     thickness: float = 2.0
 ) -> None:
-    """
-    Draws tunnel cross-section outlines given the 4 corner points for each stage.
+    """Draws tunnel cross-section outlines given the 4 corner points for each stage.
     regions[j] should be a (4,3) array of corners in world coordinates for stage j.
     """
     sim = env.unwrapped.sim
@@ -539,8 +535,7 @@ def draw_gate_constraints_from_corners(
     rgba: np.ndarray | None = None,
     thickness: float = 3.0
 ) -> None:
-    """
-    Draws gate constraint rectangles given the 4 corner points for each gate region.
+    """Draws gate constraint rectangles given the 4 corner points for each gate region.
     regions[j] should be a (4,3) array of corners in world coordinates for gate j.
     """
     sim = env.unwrapped.sim
