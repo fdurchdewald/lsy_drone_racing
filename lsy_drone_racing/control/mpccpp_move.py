@@ -50,6 +50,7 @@ MPCC_CFG = dict(
 )
 
 
+
 def export_quadrotor_ode_model() -> AcadosModel:
     """Symbolic Quadrotor Model."""
     # Define name of solver to be used in script
@@ -317,6 +318,7 @@ class MPController(Controller):
         super().__init__(obs, info, config)
         if PARAM_DICT is not None:
             MPCC_CFG.update(PARAM_DICT)
+        print(MPCC_CFG)
         self.freq = config.env.freq
         self.dist_z = []
         self._tick = 0

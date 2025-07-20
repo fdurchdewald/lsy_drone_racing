@@ -4,6 +4,7 @@ import logging
 from pathlib import Path
 import mujoco
 from typing import TYPE_CHECKING
+import secrets
 
 import fire
 import gymnasium
@@ -65,8 +66,8 @@ def simulate(
         track=config.env.track,
         disturbances=config.env.get("disturbances"),
         randomizations=config.env.get("randomizations"),
-        seed=int(time.time()),
-    )
+        seed = secrets.randbelow(2**32)
+        )
     env = JaxToNumpy(env)
 
     ep_times: list[float] = []
@@ -77,7 +78,7 @@ def simulate(
     for _ in range(n_runs):
         obs, info = env.reset()
         current_mass.append(env.unwrapped.sim.data.params.mass)
-        controller: Controller = controller_cls(obs, info, config)
+        controller: Controller = controller_cls(obs, info, config, PARAM_DICT=PARAM_DICT)
 
         # --- Prepare a permanent sample of the spline trajectory ---
         # num_samples = 200

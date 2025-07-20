@@ -36,7 +36,7 @@ class TurboState:
     failure_counter: int = 0
     failure_tolerance: int = 0  # wird im __post_init__ gesetzt
     success_counter: int = 0
-    success_tolerance: int = 5
+    success_tolerance: int = 4
     best_value: float = -float("inf")
     restart_triggered: bool = False
 
@@ -101,22 +101,14 @@ bounds = torch.tensor([
         5,     # QL
         1e-4,  # MU
         1.0,   # DVTHETA_MAX
-        10,    # N
         4e-1,  # T_HORIZON
-        0.2,   # ALPHA_INTERP
-        1e-1,  # BW_RAMP
-        0.3,  # RAMP_TIME
-        10,    # BARRIER_WEIGHT (raised for new scale)
-        0.4,   # TUNNEL_WIDTH
+        50,    # BARRIER_WEIGHT (raised for new scale)
+        0.45,   # TUNNEL_WIDTH
         0.2,   # NARROW_DIST
         0.05,  # GATE_FLAT_DIST
         1e-6,  # R_VTHETA
         -1e-2,  # REG_THRUST
         1e-4,  # REG_INPUTS
-        0.08,  # OBSTACLE_RADIUS_0
-        0.08,  # OBSTACLE_RADIUS_1
-        0.08,  # OBSTACLE_RADIUS_2
-        0.08,  # OBSTACLE_RADIUS_3
         0.10,  # TUNNEL_WIDTH_GATE_0
         0.10,  # TUNNEL_WIDTH_GATE_1
         0.10,  # TUNNEL_WIDTH_GATE_2
@@ -127,22 +119,14 @@ bounds = torch.tensor([
         60,    # QL
         100,    # MU
         3.0,   # DVTHETA_MAX
-        30,    # N
         1.2,   # T_HORIZON
-        0.8,   # ALPHA_INTERP
-        0.5,   # BW_RAMP
-        0.8,   # RAMP_TIME
         150,   # BARRIER_WEIGHT
-        0.8,   # TUNNEL_WIDTH
+        0.75,   # TUNNEL_WIDTH
         0.8,   # NARROW_DIST
         0.30,  # GATE_FLAT_DIST
         2.0,  # R_VTHETA
         0.2,   # REG_THRUST
         0.2,   # REG_INPUTS
-        0.20,  # OBSTACLE_RADIUS_0
-        0.20,  # OBSTACLE_RADIUS_1
-        0.20,  # OBSTACLE_RADIUS_2
-        0.20,  # OBSTACLE_RADIUS_3
         0.40,  # TUNNEL_WIDTH_GATE_0
         0.40,  # TUNNEL_WIDTH_GATE_1
         0.40,  # TUNNEL_WIDTH_GATE_2
@@ -155,10 +139,8 @@ num_dims = bounds.shape[1]
 # --- Custom Start-Param-Dicts --------------------------------------------
 # Definiere Start-Konfigurationen als Liste von Dictionaries:
 hyperparam_names = [
-    'QC','QL','MU','DVTHETA_MAX','N','T_HORIZON','ALPHA_INTERP',
-    'BW_RAMP','RAMP_TIME','BARRIER_WEIGHT','TUNNEL_WIDTH','NARROW_DIST',
+    'QC','QL','MU','DVTHETA_MAX','T_HORIZON','BARRIER_WEIGHT','TUNNEL_WIDTH','NARROW_DIST',
     'GATE_FLAT_DIST','R_VTHETA','REG_THRUST','REG_INPUTS',
-    'OBSTACLE_RADIUS_0','OBSTACLE_RADIUS_1','OBSTACLE_RADIUS_2','OBSTACLE_RADIUS_3',
     'TUNNEL_WIDTH_GATE_0','TUNNEL_WIDTH_GATE_1','TUNNEL_WIDTH_GATE_2','TUNNEL_WIDTH_GATE_3'
 ]
 
@@ -168,27 +150,19 @@ start_param_dicts = [
         'QL': 20,
         'MU': 10,
         'DVTHETA_MAX': 1.9,
-        'N': 20,
         'T_HORIZON': 0.9,
-        'ALPHA_INTERP': 0.6,
-        'BW_RAMP': 0.2,
-        'RAMP_TIME': 0.5,
         'BARRIER_WEIGHT': 100,
         'TUNNEL_WIDTH': 0.6,
         'NARROW_DIST': 0.4,
         'GATE_FLAT_DIST': 0.15,
         'R_VTHETA': 0.008,
         'REG_THRUST': 0.08,
-        'REG_INPUTS': 0.08,
-        'OBSTACLE_RADIUS_0': 0.11,
-        'OBSTACLE_RADIUS_1': 0.14,
-        'OBSTACLE_RADIUS_2': 0.10,
-        'OBSTACLE_RADIUS_3': 0.10,
+        'REG_INPUTS': 0.08, 
         'TUNNEL_WIDTH_GATE_0': 0.25,
         'TUNNEL_WIDTH_GATE_1': 0.15,
         'TUNNEL_WIDTH_GATE_2': 0.18,
         'TUNNEL_WIDTH_GATE_3': 0.25,
-    },
+        },
 ]
 
 # Umwandeln in Tensor (n_start × num_dims)
@@ -244,13 +218,11 @@ def evaluate_controller(params: torch.Tensor, n_runs: int = 20) -> float:
     hp = params.tolist()
     param_dict = {
         'QC': hp[0],  'QL': hp[1],  'MU': hp[2],        'DVTHETA_MAX': hp[3],
-        'N': int(round(hp[4])),     'T_HORIZON': hp[5], 'ALPHA_INTERP': hp[6],
-        'BW_RAMP': hp[7],           'RAMP_TIME': hp[8], 'BARRIER_WEIGHT': hp[9],
-        'TUNNEL_WIDTH': hp[10],     'NARROW_DIST': hp[11],
-        'GATE_FLAT_DIST': hp[12],   'R_VTHETA': hp[13],
-        'REG_THRUST': hp[14],       'REG_INPUTS': hp[15],
-        'OBSTACLE_RADIUS':     [hp[16], hp[17], hp[18], hp[19]],
-        'TUNNEL_WIDTH_GATE':   [hp[20], hp[21], hp[22], hp[23]],
+        'T_HORIZON': hp[4], 'BARRIER_WEIGHT': hp[5],
+        'TUNNEL_WIDTH': hp[6],     'NARROW_DIST': hp[7],
+        'GATE_FLAT_DIST': hp[8],   'R_VTHETA': hp[9],
+        'REG_THRUST': hp[10],       'REG_INPUTS': hp[11],
+        'TUNNEL_WIDTH_GATE':   [hp[12], hp[13], hp[14], hp[15]],
     }
 
     # Debug-Ausgabe wie gehabt
@@ -282,24 +254,18 @@ def evaluate_controller(params: torch.Tensor, n_runs: int = 20) -> float:
     if valid_times:
         print(f"Average Time: {avg_valid_time}")
 
-    # Strafen für >10 % nicht beendete Läufe
-    count_notfinished, total_finished = 0, []
-    for t in time_finished:
-        if t is not None:
-            total_finished.append(t)
-        else:
-            count_notfinished += 1
-            if count_notfinished > 0.1 * n_runs:
-                total_finished.append(50.0)
 
-    avg_time = sum(total_finished) / len(total_finished)
+    total_finished = [t if t is not None else 7.0 for t in time_finished]
+    best_times = sorted(total_finished)[:14]
+
+    avg_time = sum(best_times) / len(best_times)
     reward = -avg_time
     print(f"Reward: {reward}")
 
     finished_ratio = len(valid_times) / n_runs
     log.debug(
-        f"Average Time: {avg_valid_time}, Finished: {finished_ratio}, "
-        f"Time: {time_finished}, reward {reward}, used parameters: {param_dict}, "
+        f"reward {reward}, Average Time: {avg_valid_time}, Finished: {finished_ratio}, "
+        f"Time: {time_finished}, used parameters: {param_dict}, "
         f"current mass: {current_mass} dist z: {dist_z}"
     )
 
@@ -323,7 +289,7 @@ def main():
     try:
         torch.manual_seed(0)
 
-        n_init = max(2, 2* num_dims) 
+        n_init = max(2, 5* num_dims) 
         num_start = start_points.size(0)
         num_rest = n_init - num_start
         if num_rest > 0:
@@ -384,7 +350,8 @@ def main():
         print("Best hyperparameters found:\n", best_params)
     finally:
         # ---------- sauber schließen & Temp-Dirs räumen ----------
-        POOL.close(); POOL.join()
+        POOL.close()
+        POOL.join()
         _cleanup_acados_tmpdirs()
 
 def _cleanup_acados_tmpdirs():
