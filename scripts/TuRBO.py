@@ -62,7 +62,7 @@ def generate_batch(state: TurboState, model, X, Y, batch_size: int, n_candidates
     x_center = X[Y.argmax(), :].clone()
 
     # gewichte Länge pro Achse
-    ls = model.covar_module.base_kernel.lengthscale.squeeze().detach()
+    ls = model.covar_module.lengthscale.squeeze().detach()
     weights = ls / ls.mean()
     weights = weights / torch.prod(weights.pow(1.0 / len(weights)))
 
@@ -97,7 +97,7 @@ bounds = torch.tensor([
         0.4,   # TUNNEL_WIDTH
         0.2,   # NARROW_DIST
         0.05,  # GATE_FLAT_DIST
-        1e-5,  # R_VTHETA
+        2.0,  # R_VTHETA
         1e-4,  # REG_THRUST
         1e-4,  # REG_INPUTS
         0.08,  # OBSTACLE_RADIUS_0
@@ -123,7 +123,7 @@ bounds = torch.tensor([
         0.8,   # TUNNEL_WIDTH
         0.8,   # NARROW_DIST
         0.30,  # GATE_FLAT_DIST
-        0.05,  # R_VTHETA
+        -2.0,  # R_VTHETA
         0.2,   # REG_THRUST
         0.2,   # REG_INPUTS
         0.20,  # OBSTACLE_RADIUS_0
@@ -187,12 +187,6 @@ start_points = torch.tensor(
 
 
 def evaluate_controller(params: torch.Tensor, n_eval: int = 1) -> float:
-    """
-    Ruft simulate() mit allen Hyperparametern auf.
-    Reward:
-      - alle 4 Gates geschafft: reward = -time_finished
-      - Gate(s) verfehlt:      reward = -1e6 - 1e5*(fehlende Gates)
-    """
     hp = params.tolist()
     for _ in range(n_eval):
         param_dict = {
@@ -220,7 +214,7 @@ def evaluate_controller(params: torch.Tensor, n_eval: int = 1) -> float:
         for k, v in param_dict.items():
             print(f"  {k:18} = {v}")
         
-        n_runs = 30
+        n_runs = 20
         time_finished, gates_passed, dist_z, current_mass = simulate(
             n_runs=n_runs,
             gui=False,
@@ -245,17 +239,18 @@ def evaluate_controller(params: torch.Tensor, n_eval: int = 1) -> float:
             else:
                 count_notfinished += 1
                 if count_notfinished > 0.1 * n_runs:
-                    total_finished.append(25.0)
+                    total_finished.append(50.0)
         avg_time = sum(total_finished) / len(total_finished)
         reward = -avg_time
         print(f"Reward: {reward}")
-        log.debug(f"Average Time: {avg_valid_time}, Time: {time_finished}, reward {reward}, used parameters: {param_dict}, current mass: {current_mass} dist z: {dist_z}")
+        finished = len(valid_times)/ n_runs
+        log.debug(f"Average Time: {avg_valid_time}, Finisehd: {finished}, Time: {time_finished}, reward {reward}, used parameters: {param_dict}, current mass: {current_mass} dist z: {dist_z}")
     return reward
 
 # --- Initial Design ------------------------------------------------------------
 torch.manual_seed(0)
 
-n_init = max(2, 4 * num_dims)
+n_init = max(2, 2* num_dims) 
 num_start = start_points.size(0)
 num_rest = n_init - num_start
 if num_rest > 0:
@@ -269,10 +264,11 @@ Y_init = torch.tensor([evaluate_controller(x) for x in X_init],
 
 train_X = normalize(X_init, bounds)
 train_Y = standardize(Y_init)
+train_Y_raw = Y_init.clone()
 # -------------------------------------------------------------------------------
 
 # --- TuRBO State & Loop --------------------------------------------------------
-state = TurboState(dim=num_dims, batch_size=4)
+state = TurboState(dim=num_dims, batch_size=2)
 
 n_iter = 1000
 for itr in range(n_iter):
@@ -299,12 +295,11 @@ for itr in range(n_iter):
     # TR-Status updaten
     state = update_state(state, Y_next)
 
-    # neue Daten anhängen
+    # neue Daten anhängen (RAW und anschließend neu standardisieren)
     train_X = torch.cat([train_X, X_next_norm], dim=0)
-    train_Y = torch.cat([
-        train_Y,
-        standardize(Y_next, train_Y.mean(), train_Y.std())
-    ], dim=0)
+    train_Y_raw = torch.cat([train_Y_raw, Y_next], dim=0)
+    train_Y = standardize(train_Y_raw)
+    log.debug(f"Best raw reward so far: {train_Y_raw.max().item():.4f}")
 
     if state.restart_triggered:
         print(f"Trust region collapsed at iteration {itr}, restart triggered.")
