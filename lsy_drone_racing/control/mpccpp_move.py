@@ -34,19 +34,19 @@ MPCC_CFG = dict(
     MU=10,
     DVTHETA_MAX=1.9,
     N=20,
-    T_HORIZON=0.9,
+    T_HORIZON=0.992514351357795,
     ALPHA_INTERP=0.6,  # smoothing factor for tunnel width interpolation: 0=no movement, 1=full shift
     RAMP_TIME=0.5,
     BW_RAMP=0.2,  # ramp time for barrier weight‚
-    BARRIER_WEIGHT=100,
-    TUNNEL_WIDTH=0.6,  # nominal tunnel width
-    NARROW_DIST=0.4,  # distance (m) at which tunnel starts to narrow
-    GATE_FLAT_DIST=0.15,  # distance (m) from gate at which tunnel width remains at gate size
+    BARRIER_WEIGHT=63.97644864320965,
+    TUNNEL_WIDTH=0.5427053586566868,  # nominal tunnel width
+    NARROW_DIST=0.7132289075142857,  # distance (m) at which tunnel starts to narrow
+    GATE_FLAT_DIST=0.16306670286442024,  # distance (m) from gate at which tunnel width remains at gate size
     R_VTHETA=0.8e-2,  # quadratic penalty on vtheta
     REG_THRUST=8.0e-2,
     REG_INPUTS=8.0e-2,
     OBSTACLE_RADIUS=[0.11, 0.14, 0.1, 0.1],
-    TUNNEL_WIDTH_GATE=[0.25, 0.15, 0.18, 0.25],  # reduced width of gate opening
+    TUNNEL_WIDTH_GATE=[0.3007038115931886, 0.10141761868934414, 0.11493788046375668, 0.16311715476279598],  # reduced width of gate opening
 )
 
 
@@ -318,7 +318,6 @@ class MPController(Controller):
         super().__init__(obs, info, config)
         if PARAM_DICT is not None:
             MPCC_CFG.update(PARAM_DICT)
-        print(MPCC_CFG)
         self.freq = config.env.freq
         self.dist_z = []
         self._tick = 0

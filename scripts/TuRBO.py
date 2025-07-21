@@ -30,13 +30,13 @@ log = logger('TuRBO')
 class TurboState:
     dim: int
     batch_size: int
-    length: float = 0.3
-    length_min: float = 0.5 ** 7
+    length: float = 0.4
+    length_min: float = 0.5 ** 5
     length_max: float = 1.6
     failure_counter: int = 0
     failure_tolerance: int = 0  # wird im __post_init__ gesetzt
     success_counter: int = 0
-    success_tolerance: int = 4
+    success_tolerance: int = 5
     best_value: float = -float("inf")
     restart_triggered: bool = False
 
@@ -97,40 +97,22 @@ def generate_batch(state: TurboState, model, X, Y, batch_size: int, n_candidates
 # values and 4 per-gate TUNNEL_WIDTH_GATE values.
 bounds = torch.tensor([
     [   # lower bounds
-        5,     # QC
-        5,     # QL
+        10,     # QC
+        10,     # QL
         1e-4,  # MU
-        1.0,   # DVTHETA_MAX
-        4e-1,  # T_HORIZON
-        50,    # BARRIER_WEIGHT (raised for new scale)
-        0.45,   # TUNNEL_WIDTH
-        0.2,   # NARROW_DIST
-        0.05,  # GATE_FLAT_DIST
-        1e-6,  # R_VTHETA
+        1.5,   # DVTHETA_MAX
+        1e-4,  # R_VTHETA
         -1e-2,  # REG_THRUST
         1e-4,  # REG_INPUTS
-        0.10,  # TUNNEL_WIDTH_GATE_0
-        0.10,  # TUNNEL_WIDTH_GATE_1
-        0.10,  # TUNNEL_WIDTH_GATE_2
-        0.10,  # TUNNEL_WIDTH_GATE_3
     ],
     [   # upper bounds
-        60,    # QC
-        60,    # QL
+        50,    # QC
+        80,    # QL
         100,    # MU
         3.0,   # DVTHETA_MAX
-        1.2,   # T_HORIZON
-        150,   # BARRIER_WEIGHT
-        0.75,   # TUNNEL_WIDTH
-        0.8,   # NARROW_DIST
-        0.30,  # GATE_FLAT_DIST
         2.0,  # R_VTHETA
-        0.2,   # REG_THRUST
-        0.2,   # REG_INPUTS
-        0.40,  # TUNNEL_WIDTH_GATE_0
-        0.40,  # TUNNEL_WIDTH_GATE_1
-        0.40,  # TUNNEL_WIDTH_GATE_2
-        0.40,  # TUNNEL_WIDTH_GATE_3
+        1.0,   # REG_THRUST
+        1.0,   # REG_INPUTS
     ]
 ], dtype=torch.double)
 num_dims = bounds.shape[1]
@@ -139,29 +121,25 @@ num_dims = bounds.shape[1]
 # --- Custom Start-Param-Dicts --------------------------------------------
 # Definiere Start-Konfigurationen als Liste von Dictionaries:
 hyperparam_names = [
-    'QC','QL','MU','DVTHETA_MAX','T_HORIZON','BARRIER_WEIGHT','TUNNEL_WIDTH','NARROW_DIST',
-    'GATE_FLAT_DIST','R_VTHETA','REG_THRUST','REG_INPUTS',
-    'TUNNEL_WIDTH_GATE_0','TUNNEL_WIDTH_GATE_1','TUNNEL_WIDTH_GATE_2','TUNNEL_WIDTH_GATE_3'
+    'QC','QL','MU','DVTHETA_MAX','R_VTHETA','REG_THRUST','REG_INPUTS',
 ]
 
 start_param_dicts = [
     {
-        'QC': 20,
-        'QL': 20,
-        'MU': 10,
-        'DVTHETA_MAX': 1.9,
-        'T_HORIZON': 0.9,
-        'BARRIER_WEIGHT': 100,
-        'TUNNEL_WIDTH': 0.6,
-        'NARROW_DIST': 0.4,
-        'GATE_FLAT_DIST': 0.15,
-        'R_VTHETA': 0.008,
-        'REG_THRUST': 0.08,
-        'REG_INPUTS': 0.08, 
-        'TUNNEL_WIDTH_GATE_0': 0.25,
-        'TUNNEL_WIDTH_GATE_1': 0.15,
-        'TUNNEL_WIDTH_GATE_2': 0.18,
-        'TUNNEL_WIDTH_GATE_3': 0.25,
+        'QC':
+        17.815010170135714,
+        'QL': 
+        57.757025392584005,
+        'MU': 
+        74.50459495671505,
+        'DVTHETA_MAX':
+        1.7512476467771976,
+        'R_VTHETA':
+        0.3482765306459784,
+        'REG_THRUST':
+        0.05364509113357147,
+        'REG_INPUTS':
+        0.12248400348396848,
         },
 ]
 
@@ -217,12 +195,9 @@ def evaluate_controller(params: torch.Tensor, n_runs: int = 20) -> float:
     # -------------------------------------------------------------
     hp = params.tolist()
     param_dict = {
-        'QC': hp[0],  'QL': hp[1],  'MU': hp[2],        'DVTHETA_MAX': hp[3],
-        'T_HORIZON': hp[4], 'BARRIER_WEIGHT': hp[5],
-        'TUNNEL_WIDTH': hp[6],     'NARROW_DIST': hp[7],
-        'GATE_FLAT_DIST': hp[8],   'R_VTHETA': hp[9],
-        'REG_THRUST': hp[10],       'REG_INPUTS': hp[11],
-        'TUNNEL_WIDTH_GATE':   [hp[12], hp[13], hp[14], hp[15]],
+        'QC': hp[0],  'QL': hp[1],  'MU': hp[2],        'DVTHETA_MAX': hp[3], 'R_VTHETA': hp[4],
+        'REG_THRUST': hp[5],       'REG_INPUTS': hp[6],
+       
     }
 
     # Debug-Ausgabe wie gehabt
@@ -254,9 +229,16 @@ def evaluate_controller(params: torch.Tensor, n_runs: int = 20) -> float:
     if valid_times:
         print(f"Average Time: {avg_valid_time}")
 
+    not_finished = 0
+    best_times = []
+    for i in time_finished:
+        if i is not None:
+            best_times.append(i)
+        if i is None:
+            not_finished += 1
+            if not_finished > (0.4*len(time_finished)):
+                best_times.append(15)
 
-    total_finished = [t if t is not None else 7.0 for t in time_finished]
-    best_times = sorted(total_finished)[:14]
 
     avg_time = sum(best_times) / len(best_times)
     reward = -avg_time
