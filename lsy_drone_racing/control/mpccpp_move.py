@@ -28,28 +28,70 @@ if TYPE_CHECKING:
 log = get_logger()
 
 
+# MPCC_CFG = dict(
+#     QC=17,
+#     QL=57,
+#     MU=74,
+#     DVTHETA_MAX=1.8,
+#     N=20,
+#     T_HORIZON=0.99,
+#     ALPHA_INTERP=0.8,  # smoothing factor for tunnel width interpolation: 0=no movement, 1=full shift
+#     RAMP_TIME=0.5,
+#     BW_RAMP=0.2,  # ramp time for barrier weight‚
+#     BARRIER_WEIGHT=63,
+#     TUNNEL_WIDTH=0.542,  # nominal tunnel width
+#     NARROW_DIST=0.71,  # distance (m) at which tunnel starts to narrow
+#     GATE_FLAT_DIST=0.16306670286442024,
+#     R_VTHETA=0.3482765306459784,  # quadratic penalty on vtheta
+#     REG_THRUST=0.05364509113357147,
+#     REG_INPUTS=0.12248400348396848,
+#     OBSTACLE_RADIUS=[0.13, 0.14, 0.1, 0.1],
+#     TUNNEL_WIDTH_GATE = [0.3007038115931886,0.10141761868934414, 0.11493788046375668, 0.16311715476279598],  # reduced width of gate opening
+# )
+
+# MPCC_CFG = dict(
+#     QC=17,
+#     QL=57,
+#     MU=74,
+#     DVTHETA_MAX=1.8,
+#     N=20,
+#     T_HORIZON=1.0,
+#     ALPHA_INTERP=0.8,  # smoothing factor for tunnel width interpolation: 0=no movement, 1=full shift
+#     RAMP_TIME=0.5,
+#     BW_RAMP=0.2,  # ramp time for barrier weight‚
+#     BARRIER_WEIGHT=63,
+#     TUNNEL_WIDTH=0.542,  # nominal tunnel width
+#     NARROW_DIST=0.71,  # distance (m) at which tunnel starts to narrow
+#     GATE_FLAT_DIST=0.16306670286442024,
+#     R_VTHETA=0.3482765306459784,  # quadratic penalty on vtheta
+#     REG_THRUST=0.05364509113357147,
+#     REG_INPUTS=0.12248400348396848,
+#     OBSTACLE_RADIUS=[0.13, 0.14, 0.1, 0.1],
+#     TUNNEL_WIDTH_GATE = [0.3007038115931886,0.10141761868934414, 0.11493788046375668, 0.16311715476279598],  # reduced width of gate opening
+# )
+
+
+
 MPCC_CFG = dict(
-    QC=20,
-    QL=20,
-    MU=10,
-    DVTHETA_MAX=1.9,
+    QC=17,
+    QL=57,
+    MU=74,
+    DVTHETA_MAX=1.79,
     N=20,
-    T_HORIZON=0.992514351357795,
-    ALPHA_INTERP=0.6,  # smoothing factor for tunnel width interpolation: 0=no movement, 1=full shift
+    T_HORIZON=1.0,
+    ALPHA_INTERP=0.8,  # smoothing factor for tunnel width interpolation: 0=no movement, 1=full shift
     RAMP_TIME=0.5,
     BW_RAMP=0.2,  # ramp time for barrier weight‚
-    BARRIER_WEIGHT=63.97644864320965,
-    TUNNEL_WIDTH=0.5427053586566868,  # nominal tunnel width
-    NARROW_DIST=0.7132289075142857,  # distance (m) at which tunnel starts to narrow
-    GATE_FLAT_DIST=0.16306670286442024,  # distance (m) from gate at which tunnel width remains at gate size
-    R_VTHETA=0.8e-2,  # quadratic penalty on vtheta
-    REG_THRUST=8.0e-2,
-    REG_INPUTS=8.0e-2,
-    OBSTACLE_RADIUS=[0.11, 0.14, 0.1, 0.1],
-    TUNNEL_WIDTH_GATE=[0.3007038115931886, 0.10141761868934414, 0.11493788046375668, 0.16311715476279598],  # reduced width of gate opening
+    BARRIER_WEIGHT=63,
+    TUNNEL_WIDTH=0.542,  # nominal tunnel width
+    NARROW_DIST=0.71,  # distance (m) at which tunnel starts to narrow
+    GATE_FLAT_DIST=0.16306670286442024,
+    R_VTHETA=0.3482765306459784,  # quadratic penalty on vtheta
+    REG_THRUST=0.07364509113357147,
+    REG_INPUTS=0.15248400348396848,
+    OBSTACLE_RADIUS=[0.13, 0.14, 0.1, 0.1],
+    TUNNEL_WIDTH_GATE = [0.2707038115931886,0.10141761868934414, 0.19493788046375668, 0.16311715476279598],  # reduced width of gate opening
 )
-
-
 
 def export_quadrotor_ode_model() -> AcadosModel:
     """Symbolic Quadrotor Model."""
@@ -316,6 +358,8 @@ class MPController(Controller):
             config: The configuration of the environment.
         """
         super().__init__(obs, info, config)
+        # The PARAM_DICT passed in from simulate() / TuRBO now stays intact.
+        # Remove the following block only if you need a fixed debug preset.
         if PARAM_DICT is not None:
             MPCC_CFG.update(PARAM_DICT)
         self.freq = config.env.freq
@@ -337,6 +381,7 @@ class MPController(Controller):
         pre_gate1, post_gate1 = pre_post[1]
         pre_gate2, post_gate2 = pre_post[2]
         pre_gate3, post_gate3 = pre_post[3]
+
 
         # Same waypoints as in the trajectory controller. Determined by trial and error.
         waypoints = np.array(
@@ -500,6 +545,7 @@ class MPController(Controller):
             self._prev_idx_min_vis = idx_min_vis
         else:
             s_cur = self.vis_s[self._prev_idx_min_vis]
+            print("Warning: idx_min_vis jump detected, using previous s_cur value:")
 
         xcurrent = np.zeros(16)
         xcurrent[:3] = obs["pos"]
@@ -540,32 +586,6 @@ class MPController(Controller):
         self.acados_ocp_solver.set(0, "lbx", xcurrent)
         self.acados_ocp_solver.set(0, "ubx", xcurrent)
 
-        if self._tick < 15:
-            self.dist_z.append(obs["pos"][2] - self.pos_on_path(s_cur)[2])
-        #     # sammeln und loggen
-        #     self._dist_z_history.append(dist_z)
-        #     log.debug(f"[tick {self._tick}] dist_z = {dist_z:.4f}")
-
-        #     # alter Code für reg_thrust/reg_inputs blieb unverändert
-        #     if dist_z < 0:
-        #         self._reg_thrust = max(0.0, self._reg_thrust + 0.3 * dist_z)
-        #         self._reg_inputs = MPCC_CFG["REG_INPUTS"] * 0.9
-        #     else:
-        #         self._reg_inputs = MPCC_CFG["REG_INPUTS"] * 1.4
-
-        #     # sobald wir 50 Werte haben, plotten und abspeichern
-        #     if len(self._dist_z_history) == 50:
-        #         import matplotlib.pyplot as plt
-        #         plt.figure()
-        #         plt.plot(self._dist_z_history, marker='o')
-        #         plt.xlabel("Tick")
-        #         plt.ylabel("dist_z (m)")
-        #         plt.title("dist_z for first 50 ticks")
-        #         plt.grid(True)
-        #         plt.savefig("dist_z_first50.png")
-        #         log.info("dist_z plot saved to dist_z_first50.png")
-
-        # Standard tunnel selection for all stages; gate logic removed.
         for j in range(self.N):
             s_ref = theta_pred[j]
             pref = self.pos_on_path(s_ref)
@@ -865,12 +885,9 @@ class MPController(Controller):
                         obs["obstacles_pos"][3][1],
                         1.1,
                     ]
-            # Optional: falls du auch mit gate_quat etwas machen willst, hier weiterverarbeiten
-
         # ---- Detect waypoint changes ---------------------------------------
         changed = not np.allclose(self._waypoints, self._prev_waypoints)
-        if changed:
-            self._prev_waypoints = self._waypoints.copy()
+
 
         seg_lens = np.linalg.norm(np.diff(self._waypoints, axis=0), axis=1)
         s_grid = np.hstack(([0.0], np.cumsum(seg_lens)))  # shape (K,)
@@ -887,8 +904,11 @@ class MPController(Controller):
         # Keep medium‑resolution points only for visualisation
         vis_s = np.linspace(0.0, self.s_total, 200, endpoint=False)
         self.traj_points = np.column_stack((cs_x(vis_s), cs_y(vis_s), cs_z(vis_s)))
-
-    # get_gate_regions removed: no longer used.
+        if changed:
+            self.vis_s = vis_s
+            dists_new  = np.linalg.norm(self.traj_points - obs["pos"], axis=1)
+            self._prev_idx_min_vis = int(np.argmin(dists_new))
+            self._prev_waypoints = self._waypoints.copy()    # get_gate_regions removed: no longer used.
 
 
 def tunnel_bounds(pos_on_path, s: float, w_nom: float = 0.4, h_nom: float = 0.4):
@@ -967,7 +987,7 @@ def shrink_side_for_obstacles(
     w_nom: float,
     obstacles: np.ndarray,
     *,
-    look_ahead: float = 0.2,  # wie weit „vorne“ ein Hindernis (entlang t) noch gilt
+    look_ahead: float = 0.4,  # wie weit „vorne“ ein Hindernis (entlang t) noch gilt
     look_behind: float = 0.02,  # wie weit „hinten“ es noch gilt
     max_shift: float | None = None,
 ) -> tuple[np.ndarray, float]:

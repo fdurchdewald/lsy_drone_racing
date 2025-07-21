@@ -72,7 +72,7 @@ def simulate(
         track=config.env.track,
         disturbances=config.env.get("disturbances"),
         randomizations=config.env.get("randomizations"),
-        seed=int(time.time()),
+        seed=config.env.seed,
     )
     env = JaxToNumpy(env)
 
@@ -176,7 +176,14 @@ def log_episode_stats(obs: dict, info: dict, config: ConfigDict, curr_time: floa
 
 
 if __name__ == "__main__":
-    logging.basicConfig()
+    logging.basicConfig(
+        filename="sim.log",
+        filemode="w",
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+    )
+    # also log to console
+    logging.getLogger().addHandler(logging.StreamHandler())
     logging.getLogger("lsy_drone_racing").setLevel(logging.INFO)
     logger.setLevel(logging.INFO)
     fire.Fire(simulate, serialize=lambda _: None)
