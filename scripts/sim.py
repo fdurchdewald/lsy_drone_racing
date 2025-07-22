@@ -1,24 +1,35 @@
-"""
-Simulate the LSY benchmark and write rich logs (one JSON entry per episode).
+"""Simulate the LSY benchmark and write rich logs (one JSON entry per episode).
 
 Creates/updates:
     run_logs.json   – appended after every episode
     sim.log         – INFO-level execution log
 """
 from __future__ import annotations
-import json, logging
-from dataclasses import dataclass, asdict
+
+import json
+import logging
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, List
 
-import fire, gymnasium, numpy as np
+import fire
+import gymnasium
+import numpy as np
 from gymnasium.wrappers.jax_to_numpy import JaxToNumpy
-from lsy_drone_racing.utils.utils import *
+
+from lsy_drone_racing.utils.utils import (
+    draw_line,
+    draw_point,
+    draw_tunnel_bounds,
+    load_config,
+    load_controller,
+)
 
 if TYPE_CHECKING:
+    from ml_collections import ConfigDict
+
     from lsy_drone_racing.control.controller import Controller
     from lsy_drone_racing.envs.drone_race import DroneRaceEnv
-    from ml_collections import ConfigDict
 
 # ─────────────────────────  helper  ──────────────────────────
 def _to_py(obj):
@@ -78,7 +89,7 @@ def simulate(
     cfg: ConfigDict = load_config(Path(__file__).parents[1] / "config" / config)
     cfg.sim.gui = gui if gui is not None else cfg.sim.gui
 
-    ctl_cls = load_controller(
+    controller_cls = load_controller(
         Path(__file__).parents[1] / "lsy_drone_racing/control" / (controller or cfg.controller.file)
     )
 
@@ -110,11 +121,11 @@ def simulate(
             gate_pos_t=[], gate_quat_t=[], obs_pos_t=[]
         )
 
-        ctl: Controller = ctl_cls(obs, info, cfg)
+        controller: Controller = controller_cls(obs, info, cfg)
         step = 0
         while True:
             t_now = step / cfg.env.freq
-            act = ctl.compute_control(obs, info)
+            act = controller.compute_control(obs, info)
             obs, reward, term, trunc, info = env.step(act)
 
             # traces
@@ -128,15 +139,34 @@ def simulate(
                 run.min_obs_dist.append(float(surf.min()))
             else:
                 run.min_obs_dist.append(np.inf)
-            run.solver_ms.append(float(ctl.get_last_solve_ms()))
+            run.solver_ms.append(float(controller.get_last_solve_ms()))
             run.gate_pos_t.append(obs["gates_pos"].tolist())
             run.gate_quat_t.append(obs["gates_quat"].tolist())
             run.obs_pos_t.append(obs["obstacles_pos"].tolist())
 
-            if cfg.sim.gui and visualize:
-                _render(env, ctl)
+            if cfg.sim.gui:
+                if visualize:
+                    # draw given trajectory
+                    draw_line(env, controller.get_trajectory(), rgba=np.array([0.0, 1.0, 0.0, 1.0]),
+                            min_size=2.0, max_size=2.0)
+                    # draw waypoints
+                    for point in controller.get_waypoints():
+                        draw_point(env, point, rgba=np.array([1.0, 0.5, 0.0, 1.0]))
+                    # draw drone trajectory
+                    if len(controller.get_drone_trajectory()) >= 2:  
+                        draw_line(env, controller.get_drone_trajectory(),
+                                rgba=np.array([1.0, 0.0, 0.0, 1.0]),
+                                min_size=2.0, max_size=2.0)
+                    # draw planned trajectory
+                    draw_line(env, controller.get_planned_trajectory(),
+                            rgba=np.array([0.0, 0.0, 1.0, 1.0]),
+                            min_size=2.0, max_size=2.0)
+                    # draw tunnel bounds
+                    draw_tunnel_bounds(env, controller.get_tunnel_regions())
 
-            if term or trunc or ctl.step_callback(act, obs, reward, term, trunc, info):
+                env.render()
+
+            if term or trunc or controller.step_callback(act, obs, reward, term, trunc, info):
                 break
             step += 1
 
@@ -164,16 +194,7 @@ def simulate(
     return lap_times
 
 
-# ───────────────────────  optional drawing  ───────────────────
-def _render(env, ctl):
-    draw_line(env, ctl.get_trajectory(),            [0,1,0,1], 2, 2)
-    if len(tr := ctl.get_drone_trajectory()) > 1:
-        draw_line(env, tr,                          [1,0,0,1], 2, 2)
-    draw_line(env, ctl.get_planned_trajectory(),    [0,0,1,1], 2, 2)
-    draw_tunnel_regions_from_corners(env, ctl.get_tunnel_regions())
-    for p in ctl.get_waypoints():
-        draw_point(env, p, [1,0.5,0,1])
-    env.render()
+
 
 
 # ─────────────────────────  entry point  ───────────────────────

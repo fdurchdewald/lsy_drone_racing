@@ -9,16 +9,17 @@ Note that the trajectory uses pre-defined waypoints instead of dynamically gener
 
 from __future__ import annotations  # Python 3.10 type hints
 
+import time
 from typing import TYPE_CHECKING
-from lsy_drone_racing.control.mpccpp_config import MPCC_CFG
-from lsy_drone_racing.control.geometry import tunnel_bounds, unit, move_tunnel_center, pos_on_path
-from lsy_drone_racing.control.ocp_solver import create_ocp_solver
 
 import numpy as np
 from scipy.interpolate import CubicSpline
 from scipy.spatial.transform import Rotation as R
 
 from lsy_drone_racing.control import Controller
+from lsy_drone_racing.control.geometry import move_tunnel_center, pos_on_path, tunnel_bounds, unit
+from lsy_drone_racing.control.mpccpp_config import MPCC_CFG
+from lsy_drone_racing.control.ocp_solver import create_ocp_solver
 
 if TYPE_CHECKING:
     from numpy.typing import NDArray
@@ -284,10 +285,13 @@ class MPController(Controller):
         # fill in previous tunnel centers
         self._prev_tunnel_centers = list(self._tunnel_centers)
 
-
+        # Measure time taken for solver
+        tic = time.perf_counter()
 
         # Definition on how to react to solver failures
         status = self.acados_ocp_solver.solve()
+        toc = time.perf_counter() - tic
+        self._last_solve_ms = (toc - tic) * 1000.0 
         if status != 0:
             print(f"[acados] Abbruch mit Status {status}")
             self._acados_fail += 1
@@ -435,6 +439,7 @@ class MPController(Controller):
     def get_waypoints(self) -> NDArray[np.floating]:
         """Get the waypoints of the trajectory."""
         return self._waypoints
-
-
-
+    
+    def get_last_solve_ms(self) -> float:
+        """Get the time taken for the last OCP solver solve call in milliseconds."""
+        return self._last_solve_ms

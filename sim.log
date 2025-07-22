@@ -1,17 +1,4 @@
-2025-07-22 12:21:43,344 [INFO] jax._src.xla_bridge: Unable to initialize backend 'rocm': module 'jaxlib.xla_extension' has no attribute 'GpuAllocatorConfig'
-2025-07-22 12:21:43,346 [INFO] jax._src.xla_bridge: Unable to initialize backend 'tpu': INTERNAL: Failed to open libtpu.so: dlopen(libtpu.so, 0x0001): tried: '/Users/felixdurchdewald/master_local/drone_racing/acados/lib/libtpu.so' (no such file), '/Users/felixdurchdewald/master_local/drone_racing/acados/lib/libtpu.so' (no such file), '/libtpu.so' (no such file), 'libtpu.so' (no such file), '/System/Volumes/Preboot/Cryptexes/OSlibtpu.so' (no such file), '/Users/felixdurchdewald/.local/share/mamba/envs/ros_env/bin/../lib/libtpu.so' (no such file), '/usr/lib/libtpu.so' (no such file, not in dyld cache), 'libtpu.so' (no such file), '/usr/local/lib/libtpu.so' (no such file), '/usr/lib/libtpu.so' (no such file, not in dyld cache)
-2025-07-22 12:21:51,157 [INFO] __main__: Drone trajectory saved with 85 points.
-2025-07-22 12:21:51,157 [INFO] __main__: Flight time (s): 1.68
-Finished: False
-Gates passed: 0
-
-2025-07-22 12:21:57,219 [INFO] __main__: Drone trajectory saved with 289 points.
-2025-07-22 12:21:57,219 [INFO] __main__: Flight time (s): 5.76
-Finished: True
-Gates passed: 4
-
-2025-07-22 12:22:03,369 [INFO] __main__: Drone trajectory saved with 290 points.
-2025-07-22 12:22:03,369 [INFO] __main__: Flight time (s): 5.78
-Finished: True
-Gates passed: 4
-
+2025-07-22 12:44:34,395 [INFO] jax._src.xla_bridge: Unable to initialize backend 'rocm': module 'jaxlib.xla_extension' has no attribute 'GpuAllocatorConfig'
+2025-07-22 12:44:34,395 [INFO] jax._src.xla_bridge: Unable to initialize backend 'tpu': INTERNAL: Failed to open libtpu.so: dlopen(libtpu.so, 0x0001): tried: '/Users/felixdurchdewald/master_local/drone_racing/acados/lib/libtpu.so' (no such file), '/Users/felixdurchdewald/master_local/drone_racing/acados/lib/libtpu.so' (no such file), '/libtpu.so' (no such file), 'libtpu.so' (no such file), '/System/Volumes/Preboot/Cryptexes/OSlibtpu.so' (no such file), '/Users/felixdurchdewald/.local/share/mamba/envs/ros_env/bin/../lib/libtpu.so' (no such file), '/usr/lib/libtpu.so' (no such file, not in dyld cache), 'libtpu.so' (no such file), '/usr/local/lib/libtpu.so' (no such file), '/usr/lib/libtpu.so' (no such file, not in dyld cache)
+2025-07-22 12:44:40,587 [INFO] __main__: Episode 1/10 logged (file size 106.7 kB)
+2025-07-22 12:44:47,023 [INFO] __main__: Episode 2/10 logged (file size 491.3 kB)
