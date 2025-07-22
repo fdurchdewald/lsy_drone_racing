@@ -1,189 +1,186 @@
-"""Simulate the competition as in the IROS 2022 Safe Robot Learning competition.
-
-Run as:
-
-    $ python scripts/sim.py --config level0.toml
-
-Look for instructions in `README.md` and in the official documentation.
 """
+Simulate the LSY benchmark and write rich logs (one JSON entry per episode).
 
+Creates/updates:
+    run_logs.json   – appended after every episode
+    sim.log         – INFO-level execution log
+"""
 from __future__ import annotations
-
-import logging
-import time
+import json, logging
+from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List
 
-import fire
-import gymnasium
-import numpy as np
+import fire, gymnasium, numpy as np
 from gymnasium.wrappers.jax_to_numpy import JaxToNumpy
-
 from lsy_drone_racing.utils.utils import *
 
 if TYPE_CHECKING:
-    from ml_collections import ConfigDict
-
     from lsy_drone_racing.control.controller import Controller
     from lsy_drone_racing.envs.drone_race import DroneRaceEnv
+    from ml_collections import ConfigDict
+
+# ─────────────────────────  helper  ──────────────────────────
+def _to_py(obj):
+    """Convert NumPy scalars/arrays inside nested containers to Python types."""
+    if isinstance(obj, np.ndarray):
+        return obj.tolist()
+    if isinstance(obj, (np.generic,)):
+        return obj.item()
+    if isinstance(obj, list):
+        return [_to_py(x) for x in obj]
+    if isinstance(obj, dict):
+        return {k: _to_py(v) for k, v in obj.items()}
+    return obj
 
 
+def _dump(log_list, path: Path):
+    path.write_text(json.dumps(_to_py(log_list), indent=2))
+
+
+# ────────────────────────  dataclass  ─────────────────────────
+@dataclass
+class RunLog:
+    lap_time: float | None
+    finished: bool
+    gates_passed: int
+    seed: int
+    # initial geometry (nominal)
+    gate_pos0: list[list[float]]
+    gate_quat0: list[list[float]]
+    obs_pos0:  list[list[float]]
+    # per-step traces
+    t: List[float]
+    speed: List[float]
+    min_gate_dist: List[float]
+    min_obs_dist: List[float]
+    solver_ms: List[float]
+    gate_pos_t:  List[List[List[float]]]   # N × 4 × 3
+    gate_quat_t: List[List[List[float]]]   # N × 4 × 4
+    obs_pos_t:   List[List[List[float]]]   # N × 4 × 3
+    # crash snapshot
+    crash_gate: int | None = None
+    crash_pos:  list[float] | None = None
+    crash_gate_dist: float | None = None
+    crash_obs_dist:  float | None = None
+
+
+# ─────────────────────  main simulate()  ──────────────────────
 logger = logging.getLogger(__name__)
-
-
 def simulate(
     config: str = "level2.toml",
     controller: str | None = None,
-    n_runs: int = 5,
-    gui: bool | None = True,
-    visualize: bool = True,
+    n_runs: int = 1000,
+    gui: bool | None = False,
+    visualize: bool = False,
 ) -> list[float]:
-    """Evaluate the drone controller over multiple episodes.
 
-    Args:
-        config: The path to the configuration file. Assumes the file is in `config/`.
-        controller: The name of the controller file in `lsy_drone_racing/control/` or None. If None,
-            the controller specified in the config file is used.
-        n_runs: The number of episodes.
-        gui: Enable/disable the simulation GUI.
+    cfg: ConfigDict = load_config(Path(__file__).parents[1] / "config" / config)
+    cfg.sim.gui = gui if gui is not None else cfg.sim.gui
 
-    Returns:
-        A list of episode times.
-    """
-    # Load configuration
-    config = load_config(Path(__file__).parents[1] / "config" / config)
-    if gui is None:
-        gui = config.sim.gui
-    else:
-        config.sim.gui = gui
+    ctl_cls = load_controller(
+        Path(__file__).parents[1] / "lsy_drone_racing/control" / (controller or cfg.controller.file)
+    )
 
-    # Load the controller class
-    control_path = Path(__file__).parents[1] / "lsy_drone_racing/control"
-    controller_path = control_path / (controller or config.controller.file)
-    controller_cls = load_controller(controller_path)
-
-    # Create the racing environment
     env: DroneRaceEnv = gymnasium.make(
-        config.env.id,
-        freq=config.env.freq,
-        sim_config=config.sim,
-        sensor_range=config.env.sensor_range,
-        control_mode=config.env.control_mode,
-        track=config.env.track,
-        disturbances=config.env.get("disturbances"),
-        randomizations=config.env.get("randomizations"),
-        seed=config.env.seed,
+        cfg.env.id,
+        freq=cfg.env.freq,
+        sim_config=cfg.sim,
+        sensor_range=cfg.env.sensor_range,
+        control_mode=cfg.env.control_mode,
+        track=cfg.env.track,
+        disturbances=cfg.env.get("disturbances"),
+        randomizations=cfg.env.get("randomizations"),
+        seed=cfg.env.seed,
     )
     env = JaxToNumpy(env)
 
-    ep_times: list[float] = []
-    for _ in range(n_runs):
+    logs: list[RunLog] = []
+    lap_times: list[float] = []
+    out = Path("run_logs.json")
+
+    for ep in range(n_runs):
         obs, info = env.reset()
-        default_mass = env.unwrapped.drone_mass  # Standard-Masse
-        current_mass = env.unwrapped.sim.data.params.mass  # Randomisierte Masse
-        mass_deviation = current_mass - default_mass  # Abweichung
-        print(f"Drone mass - Default: {default_mass}, Deviation: {mass_deviation}, Total: {current_mass}")
-        controller: Controller = controller_cls(obs, info, config)
+        run = RunLog(
+            lap_time=None, finished=False, gates_passed=0, seed=int(info.get("seed", -1)),
+            gate_pos0=obs["gates_pos"].tolist(),
+            gate_quat0=obs["gates_quat"].tolist(),
+            obs_pos0=obs["obstacles_pos"].tolist(),
+            t=[], speed=[], min_gate_dist=[], min_obs_dist=[], solver_ms=[],
+            gate_pos_t=[], gate_quat_t=[], obs_pos_t=[]
+        )
 
-        # --- Prepare a permanent sample of the spline trajectory ---
-        # num_samples = 200
-        # t_lin = np.linspace(0, 1, num_samples)
-
-        # --- Prepare storage for the actually flown path ---
-        flown_positions: list[np.ndarray] = []
-
-        i = 0
-        fps = 60
+        ctl: Controller = ctl_cls(obs, info, cfg)
+        step = 0
         while True:
-            curr_time = i / config.env.freq
+            t_now = step / cfg.env.freq
+            act = ctl.compute_control(obs, info)
+            obs, reward, term, trunc, info = env.step(act)
 
-            # Compute and apply control
-            action = controller.compute_control(obs, info)
-            obs, reward, terminated, truncated, info = env.step(action)
-            controller_finished = controller.step_callback(
-                action, obs, reward, terminated, truncated, info
-            )
+            # traces
+            run.t.append(t_now)
+            run.speed.append(float(np.linalg.norm(obs["vel"])))
+            run.min_gate_dist.append(float(np.linalg.norm(obs["gates_pos"] - obs["pos"], axis=1).min()))
+            valid_obs = obs["obstacles_pos"][~np.all(obs["obstacles_pos"] == 0, axis=1)]
+            if valid_obs.size:
+                radii = np.asarray(cfg.env.get("obstacle_radius", [0.1] * len(valid_obs)))
+                surf = np.linalg.norm(valid_obs - obs["pos"], axis=1) - radii[: len(valid_obs)]
+                run.min_obs_dist.append(float(surf.min()))
+            else:
+                run.min_obs_dist.append(np.inf)
+            run.solver_ms.append(float(ctl.get_last_solve_ms()))
+            run.gate_pos_t.append(obs["gates_pos"].tolist())
+            run.gate_quat_t.append(obs["gates_quat"].tolist())
+            run.obs_pos_t.append(obs["obstacles_pos"].tolist())
 
-            # Record current drone position (ground truth state)
-            flown_positions.append(obs["pos"])
+            if cfg.sim.gui and visualize:
+                _render(env, ctl)
 
-            # Draw both the planned path and the flown path every frame
-            if config.sim.gui:
-                if visualize:
-                    path_points = controller.get_trajectory()
-
-                    # planned path: grün, Stärke 2
-                    draw_line(env, path_points,
-                            rgba=np.array([0.0, 1.0, 0.0, 1.0]),
-                            min_size=2.0, max_size=2.0)
-
-                    # # tatsächlich geflogener Pfad: rot, Stärke 1.5
-                    # if len(flown_positions) >= 2:
-                    #     fp = np.vstack(flown_positions)
-                    #     draw_line(env, fp,
-                    #             rgba=np.array([1.0, 0.0, 0.0, 1.0]),
-                    #             min_size=1.5, max_size=1.5)
-                    # point = controller.get_ref_point()
-                    # draw_point(env, point)
-                    drone_traj = controller.get_drone_trajectory()
-                    if len(drone_traj) >= 2:  
-                        draw_line(env, drone_traj,
-                                rgba=np.array([1.0, 0.0, 0.0, 1.0]),
-                                min_size=2.0, max_size=2.0)
-                    planned_traj = controller.get_planned_trajectory()
-                    draw_line(env, planned_traj,
-                            rgba=np.array([0.0, 0.0, 1.0, 1.0]),
-                            min_size=2.0, max_size=2.0)
-                    region = controller.get_tunnel_regions()
-                    draw_tunnel_regions_from_corners(env, region)
-                    planning_points = controller.get_waypoints()
-                    for point in planning_points:
-                        draw_point(env, point, rgba=np.array([1.0, 0.5, 0.0, 1.0]))
-                    #point = np.array([-0.5, 0.5, 1.4])
-                    #draw_cylinder_obstacle(env, point)
-
-                # viewer = env.unwrapped.sim.viewer          # py-mujoco Viewer
-                # viewer.scn.ngeom = 0                       # löscht alle Geoms
-                # viewer.markers.clear()   
-                env.render()
-
-            if terminated or truncated or controller_finished:
+            if term or trunc or ctl.step_callback(act, obs, reward, term, trunc, info):
                 break
+            step += 1
 
-            i += 1
+        gates_passed = obs["target_gate"] if obs["target_gate"] >= 0 \
+                       else len(cfg.env.track.gates)
+        run.gates_passed = int(gates_passed)
+        run.finished     = gates_passed == len(cfg.env.track.gates)
+        run.lap_time     = t_now if run.finished else None
+        if not run.finished:
+            run.crash_gate = int(obs["target_gate"])
+            run.crash_pos  = obs["pos"].tolist()
+            run.crash_gate_dist = run.min_gate_dist[-1]
+            run.crash_obs_dist  = run.min_obs_dist[-1]
 
-        # Episode bookkeeping
-        controller.episode_callback()
-        log_episode_stats(obs, info, config, curr_time)
-        controller.episode_reset()
-        ep_times.append(curr_time if obs["target_gate"] == -1 else None)
+        logs.append(run)
+        lap_times.append(run.lap_time)
+
+        # flush
+        _dump([asdict(r) for r in logs], out)
+        logger.info("Episode %d/%d logged (file size %.1f kB)",
+                    ep+1, n_runs, out.stat().st_size/1024)
 
     env.close()
-    return ep_times
+    print("✓ run_logs.json at", out.resolve())
+    return lap_times
 
 
-def log_episode_stats(obs: dict, info: dict, config: ConfigDict, curr_time: float):
-    """Log the statistics of a single episode."""
-    gates_passed = obs["target_gate"]
-    if gates_passed == -1:  # The drone has passed the final gate
-        gates_passed = len(config.env.track.gates)
-    finished = gates_passed == len(config.env.track.gates)
-    logger.info(
-        f"Flight time (s): {curr_time}\n"
-        f"Finished: {finished}\n"
-        f"Gates passed: {gates_passed}\n"
-    )
+# ───────────────────────  optional drawing  ───────────────────
+def _render(env, ctl):
+    draw_line(env, ctl.get_trajectory(),            [0,1,0,1], 2, 2)
+    if len(tr := ctl.get_drone_trajectory()) > 1:
+        draw_line(env, tr,                          [1,0,0,1], 2, 2)
+    draw_line(env, ctl.get_planned_trajectory(),    [0,0,1,1], 2, 2)
+    draw_tunnel_regions_from_corners(env, ctl.get_tunnel_regions())
+    for p in ctl.get_waypoints():
+        draw_point(env, p, [1,0.5,0,1])
+    env.render()
 
 
+# ─────────────────────────  entry point  ───────────────────────
 if __name__ == "__main__":
-    logging.basicConfig(
-        filename="sim.log",
-        filemode="w",
-        level=logging.INFO,
-        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
-    )
-    # also log to console
+    logging.basicConfig(filename="sim.log",
+                        filemode="w",
+                        level=logging.INFO,
+                        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
     logging.getLogger().addHandler(logging.StreamHandler())
-    logging.getLogger("lsy_drone_racing").setLevel(logging.INFO)
-    logger.setLevel(logging.INFO)
     fire.Fire(simulate, serialize=lambda _: None)
