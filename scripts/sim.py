@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, List
 
@@ -74,6 +74,10 @@ class RunLog:
     crash_pos:  list[float] | None = None
     crash_gate_dist: float | None = None
     crash_obs_dist:  float | None = None
+    drone_mass_default: float = 0.0
+    drone_mass: float = 0.0
+    mass_deviation: float = 0.0
+    pos_t: List[List[float]] = field(default_factory=list)
 
 
 # ─────────────────────  main simulate()  ──────────────────────
@@ -118,8 +122,17 @@ def simulate(
             gate_quat0=obs["gates_quat"].tolist(),
             obs_pos0=obs["obstacles_pos"].tolist(),
             t=[], speed=[], min_gate_dist=[], min_obs_dist=[], solver_ms=[],
-            gate_pos_t=[], gate_quat_t=[], obs_pos_t=[]
+            gate_pos_t=[], gate_quat_t=[], obs_pos_t=[], pos_t=[]
         )
+
+        default_mass  = env.unwrapped.drone_mass
+        current_mass  = env.unwrapped.sim.data.params.mass
+        default_mass = float(np.asarray(env.unwrapped.drone_mass).ravel()[0])
+        current_mass_arr = np.asarray(env.unwrapped.sim.data.params.mass)
+        current_mass     = float(current_mass_arr.ravel()[0])
+        run.drone_mass_default = float(default_mass)
+        run.drone_mass         = float(current_mass)
+        run.mass_deviation     = float(current_mass - default_mass)
 
         controller: Controller = controller_cls(obs, info, cfg)
         step = 0
@@ -130,6 +143,7 @@ def simulate(
 
             # traces
             run.t.append(t_now)
+            run.pos_t.append(obs["pos"].tolist())
             run.speed.append(float(np.linalg.norm(obs["vel"])))
             run.min_gate_dist.append(float(np.linalg.norm(obs["gates_pos"] - obs["pos"], axis=1).min()))
             valid_obs = obs["obstacles_pos"][~np.all(obs["obstacles_pos"] == 0, axis=1)]
@@ -140,9 +154,13 @@ def simulate(
             else:
                 run.min_obs_dist.append(np.inf)
             run.solver_ms.append(float(controller.get_last_solve_ms()))
-            run.gate_pos_t.append(obs["gates_pos"].tolist())
-            run.gate_quat_t.append(obs["gates_quat"].tolist())
-            run.obs_pos_t.append(obs["obstacles_pos"].tolist())
+            if not run.gate_pos_t or not np.allclose(obs["gates_pos"], run.gate_pos_t[-1]):
+                run.gate_pos_t.append(obs["gates_pos"].tolist())
+                run.gate_quat_t.append(obs["gates_quat"].tolist())
+
+            if not run.obs_pos_t or not np.allclose(obs["obstacles_pos"], run.obs_pos_t[-1]):
+                run.obs_pos_t.append(obs["obstacles_pos"].tolist())
+
 
             if cfg.sim.gui:
                 if visualize:

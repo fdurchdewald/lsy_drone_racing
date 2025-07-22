@@ -290,7 +290,7 @@ class MPController(Controller):
 
         # Definition on how to react to solver failures
         status = self.acados_ocp_solver.solve()
-        toc = time.perf_counter() - tic
+        toc = time.perf_counter()
         self._last_solve_ms = (toc - tic) * 1000.0 
         if status != 0:
             print(f"[acados] Abbruch mit Status {status}")
