@@ -4,7 +4,7 @@
 # | :-----------------: | :-----------------------: | :-------------------------: | :-------------------: |
 # | `level2.toml`       | **Yes**                   | **Yes**                     | Learning, re-planning |
 [controller]
-file = "mpccpp_move.py" # Put your controller file name here. Specifying a controller as argument to scripts will override this setting. Controllers are located in `lsy_drone_racing/control/`
+file = "mpccpp.py" # Put your controller file name here. Specifying a controller as argument to scripts will override this setting. Controllers are located in `lsy_drone_racing/control/`
 
 [deploy]
 ### Settings only relevant for deployment
@@ -91,8 +91,8 @@ maxval = [0.1, 0.1, 0.1]
 [env.randomizations.drone_mass]
 fn = "uniform"
 [env.randomizations.drone_mass.kwargs]
-minval = -0.001
-maxval = 0.001
+minval = -0.01
+maxval = 0.01
 
 [env.randomizations.drone_inertia]
 fn = "uniform"

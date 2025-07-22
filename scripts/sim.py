@@ -79,8 +79,8 @@ def simulate(
     ep_times: list[float] = []
     for _ in range(n_runs):
         obs, info = env.reset()
-        default_mass = env.unwrapped.drone_mass  # Standard-Masse
-        current_mass = env.unwrapped.sim.data.params.mass  # Randomisierte Masse
+        default_mass = env.unwrapped.drone_mass  
+        current_mass = env.unwrapped.sim.data.params.mass  
         mass_deviation = current_mass - default_mass  # Abweichung
         print(f"Drone mass - Default: {default_mass}, Deviation: {mass_deviation}, Total: {current_mass}")
         controller: Controller = controller_cls(obs, info, config)
@@ -111,20 +111,10 @@ def simulate(
             if config.sim.gui:
                 if visualize:
                     path_points = controller.get_trajectory()
-
-                    # planned path: grün, Stärke 2
                     draw_line(env, path_points,
                             rgba=np.array([0.0, 1.0, 0.0, 1.0]),
                             min_size=2.0, max_size=2.0)
 
-                    # # tatsächlich geflogener Pfad: rot, Stärke 1.5
-                    # if len(flown_positions) >= 2:
-                    #     fp = np.vstack(flown_positions)
-                    #     draw_line(env, fp,
-                    #             rgba=np.array([1.0, 0.0, 0.0, 1.0]),
-                    #             min_size=1.5, max_size=1.5)
-                    # point = controller.get_ref_point()
-                    # draw_point(env, point)
                     drone_traj = controller.get_drone_trajectory()
                     if len(drone_traj) >= 2:  
                         draw_line(env, drone_traj,
@@ -135,12 +125,10 @@ def simulate(
                             rgba=np.array([0.0, 0.0, 1.0, 1.0]),
                             min_size=2.0, max_size=2.0)
                     region = controller.get_tunnel_regions()
-                    draw_tunnel_regions_from_corners(env, region)
+                    draw_tunnel_bounds(env, region)
                     planning_points = controller.get_waypoints()
                     for point in planning_points:
                         draw_point(env, point, rgba=np.array([1.0, 0.5, 0.0, 1.0]))
-                    #point = np.array([-0.5, 0.5, 1.4])
-                    #draw_cylinder_obstacle(env, point)
 
                 # viewer = env.unwrapped.sim.viewer          # py-mujoco Viewer
                 # viewer.scn.ngeom = 0                       # löscht alle Geoms
@@ -148,6 +136,11 @@ def simulate(
                 env.render()
 
             if terminated or truncated or controller_finished:
+                # Log the drone trajectory for analysis
+                drone_traj = controller.get_drone_trajectory()
+                with open("all_drone_trajectories.npy", "ab") as f:
+                    np.save(f, drone_traj)
+                logger.info(f"Drone trajectory saved with {len(drone_traj)} points.")
                 break
 
             i += 1

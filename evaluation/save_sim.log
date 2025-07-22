@@ -1,0 +1,402 @@
+2025-07-21 23:20:39,997 [INFO] jax._src.xla_bridge: Unable to initialize backend 'rocm': module 'jaxlib.xla_extension' has no attribute 'GpuAllocatorConfig'
+2025-07-21 23:20:39,999 [INFO] jax._src.xla_bridge: Unable to initialize backend 'tpu': INTERNAL: Failed to open libtpu.so: dlopen(libtpu.so, 0x0001): tried: '/Users/felixdurchdewald/master_local/drone_racing/acados/lib/libtpu.so' (no such file), '/libtpu.so' (no such file), 'libtpu.so' (no such file), '/System/Volumes/Preboot/Cryptexes/OSlibtpu.so' (no such file), '/Users/felixdurchdewald/.local/share/mamba/envs/ros_env/bin/../lib/libtpu.so' (no such file), '/usr/lib/libtpu.so' (no such file, not in dyld cache), 'libtpu.so' (no such file), '/usr/local/lib/libtpu.so' (no such file), '/usr/lib/libtpu.so' (no such file, not in dyld cache)
+2025-07-21 23:20:44,673 [INFO] __main__: Flight time (s): 1.68
+Finished: False
+Gates passed: 0
+
+2025-07-21 23:20:48,004 [INFO] __main__: Flight time (s): 5.74
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:20:51,237 [INFO] __main__: Flight time (s): 5.6
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:20:54,739 [INFO] __main__: Flight time (s): 5.76
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:20:58,076 [INFO] __main__: Flight time (s): 5.76
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:21:01,552 [INFO] __main__: Flight time (s): 5.62
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:21:04,997 [INFO] __main__: Flight time (s): 5.62
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:21:08,667 [INFO] __main__: Flight time (s): 5.9
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:21:12,069 [INFO] __main__: Flight time (s): 5.78
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:21:15,465 [INFO] __main__: Flight time (s): 5.82
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:21:18,908 [INFO] __main__: Flight time (s): 5.82
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:21:22,425 [INFO] __main__: Flight time (s): 5.88
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:21:25,720 [INFO] __main__: Flight time (s): 5.66
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:21:29,224 [INFO] __main__: Flight time (s): 5.82
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:21:34,528 [INFO] __main__: Flight time (s): 5.74
+Finished: False
+Gates passed: 3
+
+2025-07-21 23:21:38,312 [INFO] __main__: Flight time (s): 2.24
+Finished: False
+Gates passed: 1
+
+2025-07-21 23:21:41,369 [INFO] __main__: Flight time (s): 4.52
+Finished: False
+Gates passed: 2
+
+2025-07-21 23:21:44,879 [INFO] __main__: Flight time (s): 6.0
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:21:48,283 [INFO] __main__: Flight time (s): 5.46
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:21:53,394 [INFO] __main__: Flight time (s): 5.4
+Finished: False
+Gates passed: 3
+
+2025-07-21 23:21:56,804 [INFO] __main__: Flight time (s): 5.76
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:22:00,058 [INFO] __main__: Flight time (s): 5.56
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:22:03,398 [INFO] __main__: Flight time (s): 6.0
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:22:07,006 [INFO] __main__: Flight time (s): 5.7
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:22:11,743 [INFO] __main__: Flight time (s): 5.52
+Finished: False
+Gates passed: 3
+
+2025-07-21 23:22:15,096 [INFO] __main__: Flight time (s): 5.74
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:22:18,544 [INFO] __main__: Flight time (s): 5.72
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:22:21,825 [INFO] __main__: Flight time (s): 5.78
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:22:23,919 [INFO] __main__: Flight time (s): 1.82
+Finished: False
+Gates passed: 1
+
+2025-07-21 23:22:27,098 [INFO] __main__: Flight time (s): 5.56
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:22:32,219 [INFO] __main__: Flight time (s): 6.02
+Finished: False
+Gates passed: 3
+
+2025-07-21 23:22:35,633 [INFO] __main__: Flight time (s): 5.98
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:22:39,024 [INFO] __main__: Flight time (s): 5.94
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:22:42,304 [INFO] __main__: Flight time (s): 5.68
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:22:45,780 [INFO] __main__: Flight time (s): 5.84
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:22:49,138 [INFO] __main__: Flight time (s): 5.9
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:22:52,596 [INFO] __main__: Flight time (s): 5.58
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:22:56,336 [INFO] __main__: Flight time (s): 6.18
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:22:59,762 [INFO] __main__: Flight time (s): 5.86
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:23:03,090 [INFO] __main__: Flight time (s): 5.56
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:23:06,451 [INFO] __main__: Flight time (s): 5.82
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:23:09,802 [INFO] __main__: Flight time (s): 5.6
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:23:13,282 [INFO] __main__: Flight time (s): 5.88
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:23:15,551 [INFO] __main__: Flight time (s): 2.14
+Finished: False
+Gates passed: 1
+
+2025-07-21 23:23:18,728 [INFO] __main__: Flight time (s): 5.36
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:23:22,288 [INFO] __main__: Flight time (s): 5.84
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:23:26,908 [INFO] __main__: Flight time (s): 5.12
+Finished: False
+Gates passed: 3
+
+2025-07-21 23:23:30,298 [INFO] __main__: Flight time (s): 6.06
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:23:33,900 [INFO] __main__: Flight time (s): 5.98
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:23:37,463 [INFO] __main__: Flight time (s): 5.72
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:23:40,999 [INFO] __main__: Flight time (s): 5.36
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:23:44,815 [INFO] __main__: Flight time (s): 5.8
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:23:48,220 [INFO] __main__: Flight time (s): 5.74
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:23:51,538 [INFO] __main__: Flight time (s): 5.6
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:23:54,837 [INFO] __main__: Flight time (s): 5.62
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:23:58,318 [INFO] __main__: Flight time (s): 5.88
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:24:01,677 [INFO] __main__: Flight time (s): 5.86
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:24:06,196 [INFO] __main__: Flight time (s): 4.9
+Finished: False
+Gates passed: 3
+
+2025-07-21 23:24:09,567 [INFO] __main__: Flight time (s): 5.66
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:24:12,962 [INFO] __main__: Flight time (s): 5.7
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:24:16,558 [INFO] __main__: Flight time (s): 6.04
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:24:19,948 [INFO] __main__: Flight time (s): 5.84
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:24:23,313 [INFO] __main__: Flight time (s): 5.82
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:24:26,694 [INFO] __main__: Flight time (s): 5.56
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:24:30,370 [INFO] __main__: Flight time (s): 5.72
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:24:33,923 [INFO] __main__: Flight time (s): 5.68
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:24:37,318 [INFO] __main__: Flight time (s): 5.88
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:24:40,262 [INFO] __main__: Flight time (s): 4.42
+Finished: False
+Gates passed: 2
+
+2025-07-21 23:24:43,550 [INFO] __main__: Flight time (s): 5.56
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:24:47,016 [INFO] __main__: Flight time (s): 6.04
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:24:50,448 [INFO] __main__: Flight time (s): 5.8
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:24:55,018 [INFO] __main__: Flight time (s): 5.4
+Finished: False
+Gates passed: 3
+
+2025-07-21 23:24:58,312 [INFO] __main__: Flight time (s): 5.66
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:25:01,804 [INFO] __main__: Flight time (s): 5.76
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:25:05,021 [INFO] __main__: Flight time (s): 5.64
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:25:08,250 [INFO] __main__: Flight time (s): 5.5
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:25:11,551 [INFO] __main__: Flight time (s): 5.7
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:25:14,881 [INFO] __main__: Flight time (s): 5.76
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:25:19,825 [INFO] __main__: Flight time (s): 5.24
+Finished: False
+Gates passed: 3
+
+2025-07-21 23:25:23,176 [INFO] __main__: Flight time (s): 5.64
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:25:27,086 [INFO] __main__: Flight time (s): 5.94
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:25:30,302 [INFO] __main__: Flight time (s): 5.48
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:25:35,236 [INFO] __main__: Flight time (s): 5.76
+Finished: False
+Gates passed: 3
+
+2025-07-21 23:25:38,632 [INFO] __main__: Flight time (s): 5.52
+Finished: False
+Gates passed: 3
+
+2025-07-21 23:25:42,052 [INFO] __main__: Flight time (s): 5.64
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:25:45,540 [INFO] __main__: Flight time (s): 5.68
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:25:48,916 [INFO] __main__: Flight time (s): 6.0
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:25:52,584 [INFO] __main__: Flight time (s): 5.66
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:25:56,174 [INFO] __main__: Flight time (s): 2.5
+Finished: False
+Gates passed: 1
+
+2025-07-21 23:25:59,504 [INFO] __main__: Flight time (s): 5.84
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:26:02,955 [INFO] __main__: Flight time (s): 6.12
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:26:06,301 [INFO] __main__: Flight time (s): 5.82
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:26:09,956 [INFO] __main__: Flight time (s): 2.66
+Finished: False
+Gates passed: 1
+
+2025-07-21 23:26:13,257 [INFO] __main__: Flight time (s): 5.82
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:26:16,616 [INFO] __main__: Flight time (s): 5.72
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:26:19,917 [INFO] __main__: Flight time (s): 5.94
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:26:23,319 [INFO] __main__: Flight time (s): 1.56
+Finished: False
+Gates passed: 0
+
+2025-07-21 23:26:28,249 [INFO] __main__: Flight time (s): 5.38
+Finished: False
+Gates passed: 3
+
+2025-07-21 23:26:31,920 [INFO] __main__: Flight time (s): 5.68
+Finished: True
+Gates passed: 4
+
+2025-07-21 23:26:35,258 [INFO] __main__: Flight time (s): 5.48
+Finished: True
+Gates passed: 4
+

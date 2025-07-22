@@ -27,8 +27,8 @@ logger = logging.getLogger(__name__)
 def simulate(
     config: str = "level2.toml",
     controller: str | None = None,
-    n_runs: int = 1,
-    gui: bool | None = True,
+    n_runs: int = 10,
+    gui: bool = True,
     visualize: bool = True,
     PARAM_DICT: dict[str, float] | None = None,
 ) -> list[float]:
@@ -66,7 +66,7 @@ def simulate(
         track=config.env.track,
         disturbances=config.env.get("disturbances"),
         randomizations=config.env.get("randomizations"),
-        seed = secrets.randbelow(2**32)
+        seed = config.env.seed
         )
     env = JaxToNumpy(env)
 
