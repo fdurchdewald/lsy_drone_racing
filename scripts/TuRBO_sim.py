@@ -1,22 +1,25 @@
+"""Simulation script for evaluating drone controllers in a racing environment.
+
+This module provides functionality to run multiple simulation episodes using specified controllers,
+log episode statistics, and return performance metrics such as flight times and gates passed.
+"""
+
 from __future__ import annotations
 
 import logging
 from pathlib import Path
-import mujoco
 from typing import TYPE_CHECKING
-import secrets
 
 import fire
 import gymnasium
 from gymnasium.wrappers.jax_to_numpy import JaxToNumpy
-import numpy as np
 
-import time
-from lsy_drone_racing.utils.utils import *
-
+from lsy_drone_racing.utils.utils import load_config, load_controller
 
 if TYPE_CHECKING:
+    import numpy as np
     from ml_collections import ConfigDict
+
     from lsy_drone_racing.control.controller import Controller
     from lsy_drone_racing.envs.drone_race import DroneRaceEnv
 
@@ -40,6 +43,8 @@ def simulate(
             the controller specified in the config file is used.
         n_runs: The number of episodes.
         gui: Enable/disable the simulation GUI.
+        visualize: Enable/disable visualization of the simulation.
+        PARAM_DICT: Optional dictionary of parameters to override controller defaults.
 
     Returns:
         A list of episode times.
@@ -72,7 +77,6 @@ def simulate(
 
     ep_times: list[float] = []
 
-    list_times = []
     list_gates_passed = []
     current_mass = []
     for _ in range(n_runs):
@@ -88,7 +92,6 @@ def simulate(
         flown_positions: list[np.ndarray] = []
 
         i = 0
-        fps = 60
         while True:
             curr_time = i / config.env.freq
 
@@ -103,7 +106,6 @@ def simulate(
             flown_positions.append(obs["pos"])
 
             if terminated or truncated or controller_finished:
-                dist_z = controller.get_distz()
                 break
 
             i += 1
@@ -119,7 +121,7 @@ def simulate(
 
         list_gates_passed.append(int(gates_passed))
     env.close()
-    return ep_times, list_gates_passed, dist_z, current_mass
+    return ep_times, list_gates_passed, current_mass
 
 
 def log_episode_stats(obs: dict, info: dict, config: ConfigDict, curr_time: float):

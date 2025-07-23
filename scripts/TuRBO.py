@@ -1,20 +1,65 @@
+"""TuRBO-based hyperparameter optimization for drone racing controller.
+
+This module implements the TuRBO trust region Bayesian optimization algorithm
+to tune controller hyperparameters using simulation-based evaluation.
+"""
+
+import logging
 import math
 from dataclasses import dataclass
 
 import torch
-from scripts.TuRBO_sim import simulate
-from botorch.models import SingleTaskGP
 from botorch.fit import fit_gpytorch_mll
+from botorch.models import SingleTaskGP
 from botorch.utils.sampling import draw_sobol_samples
-from botorch.utils.transforms import normalize, unnormalize, standardize
-from torch.quasirandom import SobolEngine
+from botorch.utils.transforms import normalize, standardize, unnormalize
 from gpytorch.mlls import ExactMarginalLogLikelihood
-from lsy_drone_racing.control.debug_utils import get_logger as logger
+from torch.quasirandom import SobolEngine
 
-log = logger('TuRBO')
+from scripts.TuRBO_sim import simulate
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    handlers=[
+        logging.FileHandler("turbo.log", mode="a"),
+        logging.StreamHandler()
+    ]
+)
+
+logger = logging.getLogger(__name__)
+
 # --- Minimal TuRBO helper (aus Tutorial) -----------------------------------------
 @dataclass
 class TurboState:
+    """Represents the state of the TuRBO trust region optimization.
+
+    Attributes:
+    ----------
+    dim : int
+        Dimensionality of the search space.
+    batch_size : int
+        Number of candidates evaluated per iteration.
+    length : float
+        Current trust region length.
+    length_min : float
+        Minimum allowed trust region length.
+    length_max : float
+        Maximum allowed trust region length.
+    failure_counter : int
+        Counter for consecutive failures.
+    failure_tolerance : int
+        Number of failures tolerated before shrinking the trust region.
+    success_counter : int
+        Counter for consecutive successes.
+    success_tolerance : int
+        Number of successes needed before expanding the trust region.
+    best_value : float
+        Best observed objective value.
+    restart_triggered : bool
+        Indicates if a restart is triggered due to trust region collapse.
+    """
+
     dim: int
     batch_size: int
     length: float = 0.3
@@ -28,6 +73,7 @@ class TurboState:
     restart_triggered: bool = False
 
     def __post_init__(self):
+        """Initialize failure_tolerance based on dimension and batch size."""
         # Mindestens ceil(dim / batch_size) Failures erlauben
         self.failure_tolerance = math.ceil(
             max(4.0 / self.batch_size, float(self.dim) / self.batch_size)
@@ -35,6 +81,20 @@ class TurboState:
 
 
 def update_state(state: TurboState, Y_next: torch.Tensor) -> TurboState:
+    """Update the TuRBO trust region state based on the latest batch of objective values.
+
+    Parameters
+    ----------
+    state : TurboState
+        The current state of the TuRBO optimizer.
+    Y_next : torch.Tensor
+        The batch of new objective values.
+
+    Returns:
+    -------
+    TurboState
+        The updated TuRBO state.
+    """
     if Y_next.max() > state.best_value + 1e-3 * abs(state.best_value):
         state.success_counter += 1
         state.failure_counter = 0
@@ -56,7 +116,36 @@ def update_state(state: TurboState, Y_next: torch.Tensor) -> TurboState:
     return state
 
 
-def generate_batch(state: TurboState, model, X, Y, batch_size: int, n_candidates: int = 5000):
+def generate_batch(
+    state: TurboState,
+    model: SingleTaskGP,
+    X: torch.Tensor,
+    Y: torch.Tensor,
+    batch_size: int,
+    n_candidates: int = 5000
+) -> torch.Tensor:
+    """Generate a batch of candidate points for TuRBO optimization using Max Posterior Sampling.
+
+    Parameters
+    ----------
+    state : TurboState
+        The current state of the TuRBO optimizer.
+    model : SingleTaskGP
+        The fitted Gaussian Process model.
+    X : torch.Tensor
+        The normalized input data.
+    Y : torch.Tensor
+        The standardized objective values.
+    batch_size : int
+        Number of candidates to generate.
+    n_candidates : int, optional
+        Number of candidate points to sample (default is 5000).
+
+    Returns:
+    -------
+    torch.Tensor
+        A tensor containing the batch of candidate points in normalized space.
+    """
     dim, dtype, device = X.shape[-1], X.dtype, X.device
     # best observed center in normalized space
     x_center = X[Y.argmax(), :].clone()
@@ -160,6 +249,20 @@ start_points = torch.tensor(
 
 
 def evaluate_controller(params: torch.Tensor, n_eval: int = 1) -> float:
+    """Evaluate the drone controller with the given hyperparameters.
+
+    Parameters
+    ----------
+    params : torch.Tensor
+        A tensor containing the hyperparameter values to evaluate.
+    n_eval : int, optional
+        Number of evaluation runs to perform (default is 1).
+
+    Returns:
+    -------
+    float
+        The reward value computed as the negative average time taken to finish the simulation runs.
+    """
     hp = params.tolist()
     for _ in range(n_eval):
         param_dict = {
@@ -176,7 +279,7 @@ def evaluate_controller(params: torch.Tensor, n_eval: int = 1) -> float:
             print(f"  {k:18} = {v}")
         
         n_runs = 10
-        time_finished, gates_passed, dist_z, current_mass = simulate(
+        time_finished, gates_passed, current_mass = simulate(
             n_runs=n_runs,
             gui=False,
             visualize=False,
@@ -213,7 +316,7 @@ def evaluate_controller(params: torch.Tensor, n_eval: int = 1) -> float:
         reward = -avg_time
         print(f"Reward: {reward}")
         finished = len(valid_times)/ n_runs
-        log.debug(f"Average Time: {avg_valid_time}, Finisehd: {finished}, Time: {time_finished}, reward {reward}, used parameters: {param_dict}, current mass: {current_mass} dist z: {dist_z}")
+        logger.info(f"Average Time: {avg_valid_time}, Finisehd: {finished}, Time: {time_finished}, reward {reward}, used parameters: {param_dict}, current mass: {current_mass}")
     return reward
 
 # --- Initial Design ------------------------------------------------------------
@@ -259,7 +362,7 @@ for itr in range(n_iter):
         Y_list.append([y_val])
     Y_next = torch.tensor(Y_list, dtype=torch.double)
 
-    log.debug(f"Batch iteration {itr}: rewards {Y_next.view(-1).tolist()}, current TR length {state.length}")
+    logger.info(f"Batch iteration {itr}: rewards {Y_next.view(-1).tolist()}, current TR length {state.length}")
 
     # TR-Status updaten
     state = update_state(state, Y_next)
@@ -268,7 +371,7 @@ for itr in range(n_iter):
     train_X = torch.cat([train_X, X_next_norm], dim=0)
     train_Y_raw = torch.cat([train_Y_raw, Y_next], dim=0)
     train_Y = standardize(train_Y_raw)
-    log.debug(f"Best raw reward so far: {train_Y_raw.max().item():.4f}")
+    logger.info(f"Best raw reward so far: {train_Y_raw.max().item():.4f}")
 
     if state.restart_triggered:
         print(f"Trust region collapsed at iteration {itr}, restart triggered.")

@@ -1,7 +1,14 @@
+"""Module for setting up and solving the optimal control problem (OCP) for quadrotor drone racing using acados.
+
+Provides functions to export a symbolic quadrotor model and create an acados OCP solver with appropriate constraints and cost terms.
+"""
+
 import numpy as np
-from casadi import MX, cos, sin, vertcat
 from acados_template import AcadosModel, AcadosOcp, AcadosOcpSolver
+from casadi import MX, cos, sin, vertcat
+
 from lsy_drone_racing.control.mpccpp_config import MPCC_CFG
+
 
 def export_quadrotor_ode_model() -> AcadosModel:
     """Symbolic Quadrotor Model."""
