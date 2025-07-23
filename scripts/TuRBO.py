@@ -3,6 +3,9 @@
 This module implements the TuRBO trust region Bayesian optimization algorithm
 to tune controller hyperparameters using simulation-based evaluation.
 """
+### As a short notice, this script is already runable, but still would need some refinement.
+### We therefore decided not to include the necessary dependencies in the pyproject.toml file.
+### Feel free to install torch gpytorch botorch manually, if interested in the script.
 
 import logging
 import math
