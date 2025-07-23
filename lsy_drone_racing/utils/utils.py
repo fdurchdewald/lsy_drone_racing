@@ -182,12 +182,12 @@ def draw_tunnel_bounds(
     thickness: float = 3.0
 ) -> None:
     """Draws tunnel cross-section outlines given the 4 corner points for each stage.
+
     regions[j] should be a (4,3) array of corners in world coordinates for stage j.
     """  
     sim = env.unwrapped.sim
     if sim.viewer is None:
         return
-    viewer = sim.viewer.viewer
 
     N = regions.shape[0]
     assert regions.ndim == 3 and regions.shape[1:] == (4, 3), "regions must be shape (N,4,3)"

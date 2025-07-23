@@ -1,7 +1,12 @@
+"""TuRBO-based hyperparameter optimization for drone racing controller.
+
+This module implements the TuRBO trust region Bayesian optimization algorithm
+to tune controller hyperparameters using simulation-based evaluation.
+"""
+
+import logging
 import math
 from dataclasses import dataclass
-import logging
-
 
 import torch
 from botorch.fit import fit_gpytorch_mll
@@ -85,7 +90,7 @@ def update_state(state: TurboState, Y_next: torch.Tensor) -> TurboState:
     Y_next : torch.Tensor
         The batch of new objective values.
 
-    Returns
+    Returns:
     -------
     TurboState
         The updated TuRBO state.

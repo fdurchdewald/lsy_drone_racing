@@ -41,6 +41,7 @@ class Controller(ABC):
             info: The initial environment information from the reset.
             config: The race configuration. See the config files for details. Contains additional
                 information such as disturbance configurations, randomizations, etc.
+            PARAM_DICT: Optional dictionary of controller parameters (e.g., tuning values).
         """
 
     @abstractmethod

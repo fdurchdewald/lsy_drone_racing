@@ -1,9 +1,14 @@
+"""Simulation script for evaluating drone controllers in a racing environment.
+
+This module provides functionality to run multiple simulation episodes using specified controllers,
+log episode statistics, and return performance metrics such as flight times and gates passed.
+"""
+
 from __future__ import annotations
-import numpy as np
+
 import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
-import secrets
 
 import fire
 import gymnasium
@@ -12,6 +17,7 @@ from gymnasium.wrappers.jax_to_numpy import JaxToNumpy
 from lsy_drone_racing.utils.utils import load_config, load_controller
 
 if TYPE_CHECKING:
+    import numpy as np
     from ml_collections import ConfigDict
 
     from lsy_drone_racing.control.controller import Controller

@@ -45,7 +45,7 @@ def _to_py(obj: object) -> object:
     return obj
 
 
-def _dump(log_list, path: Path):
+def _dump(log_list: list, path: Path):
     path.write_text(json.dumps(_to_py(log_list), indent=2))
 
 
