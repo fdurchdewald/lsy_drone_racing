@@ -12,6 +12,7 @@ from __future__ import annotations  # Python 3.10 type hints
 
 import math
 from typing import TYPE_CHECKING
+
 import numpy as np
 from crazyflow.constants import MASS
 from scipy.interpolate import CubicSpline
@@ -36,10 +37,9 @@ class AttitudeController(Controller):
             config: The configuration of the environment.
         """
         super().__init__(obs, info, config)
-
         self.freq = config.env.freq
         self.drone_mass = MASS
-        self.kp = np.array([0.4, 0.4, 2])
+        self.kp = np.array([0.4, 0.4, 1.25])
         self.ki = np.array([0.05, 0.05, 0.05])
         self.kd = np.array([0.2, 0.2, 0.4])
         self.ki_range = np.array([2.0, 2.0, 0.4])
@@ -48,29 +48,20 @@ class AttitudeController(Controller):
         self._tick = 0
 
         # Same waypoints as in the trajectory controller. Determined by trial and error.
-        waypoints = np.array([
-            [1.09, 1.4, 0.1],
-            [0.8, 1.0, 0.2],
-            [0.55, -0.3, 0.5],
-            [0.45, -0.5, 0.56],
-            [0.1, -1.0, 0.65],
-            [0.2, -1.3, 0.65],
-            [0.75, -1.20, 0.85],
-            [0.85, -1.2, 1.11],
-            [1.0, -1.05, 1.11],
-            [1.15, -0.9, 1.11],
-            [1.1, -0.7, 1.0],
-            [0.05, 0.5, 0.65],
-            [0.00, 0.7, 0.65],
-            [0.1, 0.85, 0.56],
-            [0.1, 1.0, 0.56],
-            [0.1, 1.15, 0.56],
-            [0.0, 1.1, 0.6],
-            [0.0, 1.1, 1.1],
-            [0.0, 0.5, 1.1],
-            [-0.5, 0.0, 1.1],
-            [-0.5, -0.5, 1.1],
-        ])
+        waypoints = np.array(
+            [
+                [1.0, 1.5, 0.05],
+                [0.8, 1.0, 0.2],
+                [0.55, -0.3, 0.5],
+                [0.2, -1.3, 0.65],
+                [1.1, -0.85, 1.1],
+                [0.2, 0.5, 0.65],
+                [0.0, 1.2, 0.525],
+                [0.0, 1.2, 1.1],
+                [-0.5, 0.0, 1.1],
+                [-0.5, -0.5, 1.1],
+            ]
+        )
         # Scale trajectory between 0 and 1
         ts = np.linspace(0, 1, np.shape(waypoints)[0])
         cs_x = CubicSpline(ts, waypoints[:, 0])
@@ -79,11 +70,11 @@ class AttitudeController(Controller):
 
         des_completion_time = 15
         ts = np.linspace(0, 1, int(self.freq * des_completion_time))
+
         self.x_des = cs_x(ts)
         self.y_des = cs_y(ts)
         self.z_des = cs_z(ts)
         self._finished = False
-
 
     def compute_control(
         self, obs: dict[str, NDArray[np.floating]], info: dict | None = None
@@ -98,7 +89,6 @@ class AttitudeController(Controller):
         Returns:
             The collective thrust and orientation [t_des, r_des, p_des, y_des] as a numpy array.
         """
-
         i = min(self._tick, len(self.x_des) - 1)
         if i == len(self.x_des) - 1:  # Maximum duration reached
             self._finished = True
