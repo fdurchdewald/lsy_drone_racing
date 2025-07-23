@@ -125,7 +125,6 @@ class MPController(Controller):
         Returns:
             The collective thrust and orientation [t_des, r_des, p_des, y_des] as a numpy array.
         """
-
         # Reset tunnel for each call
         self._tunnel_wh = []
         self._tunnel_nb  = []

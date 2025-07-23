@@ -179,7 +179,7 @@ def draw_tunnel_bounds(
     env: "RaceCoreEnv",
     regions: np.ndarray,  # shape (N, 4, 3), corners for each stage
     rgba: np.ndarray | None = None,
-    thickness: float = 2.0
+    thickness: float = 3.0
 ) -> None:
     """Draws tunnel cross-section outlines given the 4 corner points for each stage.
     regions[j] should be a (4,3) array of corners in world coordinates for stage j.
