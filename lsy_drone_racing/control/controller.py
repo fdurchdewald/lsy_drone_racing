@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 class Controller(ABC):
     """Base class for controller implementations."""
 
-    def __init__(self, obs: dict[str, NDArray[np.floating]], info: dict, config: dict):
+    def __init__(self, obs: dict[str, NDArray[np.floating]], info: dict, config: dict, PARAM_DICT: dict[str, float] | None = None):
         """Initialization of the controller.
 
         Instructions:
@@ -41,6 +41,7 @@ class Controller(ABC):
             info: The initial environment information from the reset.
             config: The race configuration. See the config files for details. Contains additional
                 information such as disturbance configurations, randomizations, etc.
+            PARAM_DICT: Optional dictionary of controller parameters (e.g., tuning values).
         """
 
     @abstractmethod

@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def main(config: str = "level2.toml", controller: str | None = None):
+def main(config: str = "without_obs.toml", controller: str | None = None):
     """Deployment script to run the controller on the real drone.
 
     Args:
@@ -48,7 +48,7 @@ def main(config: str = "level2.toml", controller: str | None = None):
         options = {
             "check_drone_start_pos": config.deploy.check_drone_start_pos,
             "check_race_track": config.deploy.check_race_track,
-            "practice_without_track_objects": config.deploy.practice_without_track_objects,
+            "real_track_objects": config.deploy.real_track_objects,
         }
         obs, info = env.reset(options=options)
         next_obs = obs  # Set next_obs to avoid errors when the loop never enters
