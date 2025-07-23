@@ -136,23 +136,23 @@ def simulate(
     list[float]
         List of lap times for each episode (None if not finished).
     """
-    cfg: ConfigDict = load_config(Path(__file__).parents[1] / "config" / config)
-    cfg.sim.gui = gui if gui is not None else cfg.sim.gui
+    config: ConfigDict = load_config(Path(__file__).parents[1] / "config" / config)
+    config.sim.gui = gui if gui is not None else config.sim.gui
 
     controller_cls = load_controller(
-        Path(__file__).parents[1] / "lsy_drone_racing/control" / (controller or cfg.controller.file)
+        Path(__file__).parents[1] / "lsy_drone_racing/control" / (controller or config.controller.file)
     )
 
     env: DroneRaceEnv = gymnasium.make(
-        cfg.env.id,
-        freq=cfg.env.freq,
-        sim_config=cfg.sim,
-        sensor_range=cfg.env.sensor_range,
-        control_mode=cfg.env.control_mode,
-        track=cfg.env.track,
-        disturbances=cfg.env.get("disturbances"),
-        randomizations=cfg.env.get("randomizations"),
-        seed=cfg.env.seed,
+        config.env.id,
+        freq=config.env.freq,
+        sim_config=config.sim,
+        sensor_range=config.env.sensor_range,
+        control_mode=config.env.control_mode,
+        track=config.env.track,
+        disturbances=config.env.get("disturbances"),
+        randomizations=config.env.get("randomizations"),
+        seed=config.env.seed,
     )
     env = JaxToNumpy(env)
 
@@ -180,12 +180,12 @@ def simulate(
         run.drone_mass         = float(current_mass)
         run.mass_deviation     = float(current_mass - default_mass)
 
-        controller: Controller = controller_cls(obs, info, cfg)
+        controller: Controller = controller_cls(obs, info, config)
         step = 0
         i = 0
         fps = 60 
         while True:
-            t_now = step / cfg.env.freq
+            t_now = step / config.env.freq
             act = controller.compute_control(obs, info)
             obs, reward, term, trunc, info = env.step(act)
 
@@ -196,7 +196,7 @@ def simulate(
             run.min_gate_dist.append(float(np.linalg.norm(obs["gates_pos"] - obs["pos"], axis=1).min()))
             valid_obs = obs["obstacles_pos"][~np.all(obs["obstacles_pos"] == 0, axis=1)]
             if valid_obs.size:
-                radii = np.asarray(cfg.env.get("obstacle_radius", [0.1] * len(valid_obs)))
+                radii = np.asarray(config.env.get("obstacle_radius", [0.1] * len(valid_obs)))
                 surf = np.linalg.norm(valid_obs - obs["pos"], axis=1) - radii[: len(valid_obs)]
                 run.min_obs_dist.append(float(surf.min()))
             else:
@@ -210,7 +210,7 @@ def simulate(
                 run.obs_pos_t.append(obs["obstacles_pos"].tolist())
 
 
-            if cfg.sim.gui:
+            if config.sim.gui:
                 if visualize:
                     # draw given trajectory
                     draw_line(env, controller.get_trajectory(), rgba=np.array([0.0, 1.0, 0.0, 1.0]),
@@ -229,7 +229,7 @@ def simulate(
                             min_size=3.0, max_size=3.0)
                     # draw tunnel bounds
                     draw_tunnel_bounds(env, controller.get_tunnel_regions())
-                if ((i * fps) % cfg.env.freq) < fps:
+                if ((i * fps) % config.env.freq) < fps:
                     env.render()
                 i += 1
 
@@ -238,9 +238,9 @@ def simulate(
             step += 1
 
         gates_passed = obs["target_gate"] if obs["target_gate"] >= 0 \
-                       else len(cfg.env.track.gates)
+                       else len(config.env.track.gates)
         run.gates_passed = int(gates_passed)
-        run.finished     = gates_passed == len(cfg.env.track.gates)
+        run.finished     = gates_passed == len(config.env.track.gates)
         run.lap_time     = t_now if run.finished else None
         if not run.finished:
             run.crash_gate = int(obs["target_gate"])
@@ -255,7 +255,7 @@ def simulate(
         _dump([asdict(r) for r in logs], out)
         logger.info("Episode %d/%d logged (file size %.1f kB)",
                     ep+1, n_runs, out.stat().st_size/1024)
-        log_episode_stats(obs, info, cfg, run.lap_time)
+        log_episode_stats(obs, info, config, run.lap_time)
 
     env.close()
     print("✓ run_logs.json at", out.resolve())
