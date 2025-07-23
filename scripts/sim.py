@@ -114,7 +114,7 @@ def simulate(
     controller: str | None = None,
     n_runs: int = 1000,
     gui: bool | None = False,
-    visualize: bool = False,
+    visualize: bool = True,
 ) -> list[float]:
     """Simulate the LSY drone racing benchmark for a given number of episodes.
 
